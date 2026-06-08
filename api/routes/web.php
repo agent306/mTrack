@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\MagicLinkController;
+use App\Http\Controllers\Admin\AdminController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -29,6 +30,25 @@ Route::middleware(['auth', 'active.user', 'tenant.resolve', 'active.tenant'])->g
     Route::get('/dashboard', fn () => Inertia::render('Foundation/Overview', [
         'surface' => Auth::user()?->tenant_id ? 'customer' : 'platform',
     ]))->name('dashboard');
+
+    Route::redirect('/admin', '/admin/dashboard')->name('admin.index');
+    Route::get('/admin/{module}', [AdminController::class, 'show'])->name('admin.show');
+    Route::post('/admin/payments/{paymentSlip}/approve', [AdminController::class, 'approvePayment'])
+        ->name('admin.payments.approve');
+    Route::post('/admin/payments/{paymentSlip}/reject', [AdminController::class, 'rejectPayment'])
+        ->name('admin.payments.reject');
+    Route::post('/admin/customers/{tenant}/approve', [AdminController::class, 'approveCustomer'])
+        ->name('admin.customers.approve');
+    Route::post('/admin/customers/{tenant}/block', [AdminController::class, 'blockCustomer'])
+        ->name('admin.customers.block');
+    Route::post('/admin/devices/{trackerDevice}/assign', [AdminController::class, 'assignTracker'])
+        ->name('admin.devices.assign');
+    Route::post('/admin/devices/assign-discovered', [AdminController::class, 'assignDiscovered'])
+        ->name('admin.devices.assign-discovered');
+    Route::post('/admin/geofence', [AdminController::class, 'storeGeofence'])
+        ->name('admin.geofence.store');
+    Route::put('/admin/geofence/{geofence}', [AdminController::class, 'updateGeofence'])
+        ->name('admin.geofence.update');
 
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');

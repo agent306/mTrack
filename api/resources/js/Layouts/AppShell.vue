@@ -27,27 +27,29 @@ defineProps<{
 
 const page = usePage<PageProps>();
 
-const navItems: Array<{ label: string; icon: Component; active?: boolean }> = [
-    { label: 'Dashboard', icon: Gauge, active: true },
-    { label: 'Live', icon: MapPinned },
-    { label: 'Playback', icon: PlayCircle },
-    { label: 'Events', icon: Bell },
-    { label: 'Devices', icon: RadioTower },
-    { label: 'Geofence', icon: Map },
-    { label: 'Routes', icon: Route },
-    { label: 'Customers', icon: Building2 },
-    { label: 'Payments', icon: CreditCard },
-    { label: 'Logs', icon: FileText },
-    { label: 'Users & Roles', icon: Users },
-    { label: 'Settings', icon: Settings },
+const isActive = (href: string) => page.url === href || page.url.startsWith(`${href}/`);
+
+const navItems: Array<{ label: string; icon: Component; href?: string; active?: boolean; disabled?: boolean }> = [
+    { label: 'Dashboard', icon: Gauge, href: '/admin/dashboard', active: isActive('/admin/dashboard') || page.url === '/dashboard' },
+    { label: 'Live', icon: MapPinned, href: '/admin/live', active: isActive('/admin/live') },
+    { label: 'Playback', icon: PlayCircle, href: '/admin/playback', active: isActive('/admin/playback') },
+    { label: 'Events', icon: Bell, href: '/admin/events', active: isActive('/admin/events') },
+    { label: 'Devices', icon: RadioTower, href: '/admin/devices', active: isActive('/admin/devices') },
+    { label: 'Geofence', icon: Map, href: '/admin/geofence', active: isActive('/admin/geofence') },
+    { label: 'Routes', icon: Route, href: '/admin/routes', active: isActive('/admin/routes') },
+    { label: 'Customers', icon: Building2, href: '/admin/customers', active: isActive('/admin/customers') },
+    { label: 'Payments', icon: CreditCard, href: '/admin/payments', active: isActive('/admin/payments') },
+    { label: 'Logs', icon: FileText, href: '/admin/logs', active: isActive('/admin/logs') },
+    { label: 'Users & Roles', icon: Users, disabled: true },
+    { label: 'Settings', icon: Settings, disabled: true },
 ];
 
-const mobileNavItems: Array<{ label: string; icon: Component; active?: boolean }> = [
-    { label: 'Dashboard', icon: Gauge, active: true },
-    { label: 'Reports', icon: FileText },
-    { label: 'Live', icon: MapPinned },
-    { label: 'Playback', icon: PlayCircle },
-    { label: 'Setting', icon: Settings },
+const mobileNavItems: Array<{ label: string; icon: Component; href?: string; active?: boolean; disabled?: boolean }> = [
+    { label: 'Dashboard', icon: Gauge, href: '/admin/dashboard', active: isActive('/admin/dashboard') || page.url === '/dashboard' },
+    { label: 'Logs', icon: FileText, href: '/admin/logs', active: isActive('/admin/logs') },
+    { label: 'Live', icon: MapPinned, href: '/admin/live', active: isActive('/admin/live') },
+    { label: 'Playback', icon: PlayCircle, href: '/admin/playback', active: isActive('/admin/playback') },
+    { label: 'Payments', icon: CreditCard, href: '/admin/payments', active: isActive('/admin/payments') },
 ];
 
 const logout = () => router.post('/logout');
@@ -89,9 +91,9 @@ const logout = () => router.post('/logout');
                     </div>
                     <div class="hidden items-center gap-3 sm:flex">
                         <div class="rounded-full border border-line bg-muted-surface px-3 py-1 text-xs font-medium text-muted">
-                            Foundation
+                            Admin web
                         </div>
-                        <Link href="/dashboard" class="rounded-mtrack-sm bg-primary-dark px-4 py-2 text-sm font-semibold text-white">
+                        <Link href="/admin/dashboard" class="rounded-mtrack-sm bg-primary-dark px-4 py-2 text-sm font-semibold text-white">
                             Workspace
                         </Link>
                     </div>
