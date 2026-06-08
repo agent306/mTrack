@@ -36,4 +36,54 @@ class Tenant extends Model
     {
         return $this->hasMany(Role::class);
     }
+
+    public function settings(): HasMany
+    {
+        return $this->hasMany(TenantSetting::class);
+    }
+
+    public function fleetGroups(): HasMany
+    {
+        return $this->hasMany(FleetGroup::class);
+    }
+
+    public function trackerDevices(): HasMany
+    {
+        return $this->hasMany(TrackerDevice::class);
+    }
+
+    public function rawPayloads(): HasMany
+    {
+        return $this->hasMany(RawPayload::class);
+    }
+
+    public function normalizedLocationEvents(): HasMany
+    {
+        return $this->hasMany(NormalizedLocationEvent::class);
+    }
+
+    public function geofences(): HasMany
+    {
+        return $this->hasMany(Geofence::class);
+    }
+
+    public function alertEvents(): HasMany
+    {
+        return $this->hasMany(AlertEvent::class);
+    }
+
+    public function licenseAllocations(): HasMany
+    {
+        return $this->hasMany(LicenseAllocation::class);
+    }
+
+    public function licenseRequests(): HasMany
+    {
+        return $this->hasMany(LicenseRequest::class);
+    }
+
+    public function paymentSlips(): HasMany
+    {
+        return $this->hasMany(PaymentSlip::class);
+    }
 }
