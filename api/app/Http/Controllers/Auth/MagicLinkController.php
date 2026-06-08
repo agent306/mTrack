@@ -26,8 +26,13 @@ class MagicLinkController extends Controller
         ]);
 
         $user = User::query()
+            ->with('tenant')
             ->where('email', mb_strtolower($validated['email']))
             ->where('status', 'active')
+            ->where(function ($query): void {
+                $query->whereNull('tenant_id')
+                    ->orWhereHas('tenant', fn ($tenantQuery) => $tenantQuery->where('status', 'active'));
+            })
             ->first();
 
         if ($user) {
@@ -45,7 +50,7 @@ class MagicLinkController extends Controller
 
     public function show(Request $request, User $user): RedirectResponse
     {
-        abort_unless($request->hasValidSignature() && $user->status === 'active', 403);
+        abort_unless($request->hasValidSignature() && $user->canSignIn(), 403);
 
         $user->forceFill([
             'auth_provider' => 'magic_link',

@@ -20,8 +20,13 @@ class GoogleAuthController extends Controller
         $googleUser = Socialite::driver('google')->user();
 
         $user = User::query()
+            ->with('tenant')
             ->where('email', mb_strtolower($googleUser->getEmail()))
             ->where('status', 'active')
+            ->where(function ($query): void {
+                $query->whereNull('tenant_id')
+                    ->orWhereHas('tenant', fn ($tenantQuery) => $tenantQuery->where('status', 'active'));
+            })
             ->first();
 
         if (! $user) {

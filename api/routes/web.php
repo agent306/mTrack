@@ -25,7 +25,7 @@ Route::get('/auth/magic-link/{user}', [MagicLinkController::class, 'show'])
     ->middleware(['signed', 'throttle:10,1'])
     ->name('auth.magic-link.show');
 
-Route::middleware('auth')->group(function (): void {
+Route::middleware(['auth', 'active.user', 'tenant.resolve', 'active.tenant'])->group(function (): void {
     Route::get('/dashboard', fn () => Inertia::render('Foundation/Overview', [
         'surface' => Auth::user()?->tenant_id ? 'customer' : 'platform',
     ]))->name('dashboard');
