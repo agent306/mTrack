@@ -130,8 +130,8 @@ return [
             ],
             [
                 'tenant' => 'demo',
-                'name' => 'mTrack Operator',
-                'email' => 'test@example.com',
+                'name' => 'Client Admin',
+                'email' => 'fansxy@gmail.com',
                 'roles' => ['tenant-admin'],
             ],
         ],
