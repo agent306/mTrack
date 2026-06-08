@@ -2,6 +2,33 @@
 
 use App\Ingestion\Contracts\DemoJsonLocationContract;
 
+$adminModules = [
+    'dashboard',
+    'live',
+    'playback',
+    'events',
+    'devices',
+    'geofence',
+    'routes',
+    'customers',
+    'payments',
+    'logs',
+];
+
+$customerModules = [
+    'dashboard',
+    'live',
+    'playback',
+    'events',
+    'my_fleets',
+    'geofence',
+    'analysis',
+    'routes',
+    'settings',
+    'billing',
+    'audit_log',
+];
+
 return [
     'auth' => [
         'magic_link_expiration_minutes' => env('MTRACK_MAGIC_LINK_EXPIRATION_MINUTES', 15),
@@ -43,31 +70,59 @@ return [
         ],
     ],
 
+    'default_access' => [
+        'tenants' => [
+            'demo' => [
+                'name' => 'mTrack Demo Fleet',
+                'status' => 'active',
+                'billing_status' => 'trial',
+                'raw_payload_retention_days' => 90,
+            ],
+        ],
+        'roles' => [
+            'platform-admin' => [
+                'tenant' => null,
+                'name' => 'Platform Administrator',
+                'slug' => 'platform-admin',
+                'scope' => 'platform',
+                'permissions' => [
+                    'modules' => array_fill_keys($adminModules, 'edit'),
+                ],
+            ],
+            'tenant-admin' => [
+                'tenant' => 'demo',
+                'name' => 'Tenant Administrator',
+                'slug' => 'tenant-admin',
+                'scope' => 'tenant',
+                'permissions' => [
+                    'modules' => array_fill_keys($customerModules, 'edit'),
+                ],
+            ],
+        ],
+        'users' => [
+            [
+                'tenant' => null,
+                'name' => 'Ncodex',
+                'email' => 'hello@nashath.dev',
+                'roles' => ['platform-admin'],
+            ],
+            [
+                'tenant' => null,
+                'name' => 'Natthu',
+                'email' => 'masigning@gmail.com',
+                'roles' => ['platform-admin'],
+            ],
+            [
+                'tenant' => 'demo',
+                'name' => 'mTrack Operator',
+                'email' => 'test@example.com',
+                'roles' => ['tenant-admin'],
+            ],
+        ],
+    ],
+
     'modules' => [
-        'admin' => [
-            'dashboard',
-            'live',
-            'playback',
-            'events',
-            'devices',
-            'geofence',
-            'routes',
-            'customers',
-            'payments',
-            'logs',
-        ],
-        'customer' => [
-            'dashboard',
-            'live',
-            'playback',
-            'events',
-            'my_fleets',
-            'geofence',
-            'analysis',
-            'routes',
-            'settings',
-            'billing',
-            'audit_log',
-        ],
+        'admin' => $adminModules,
+        'customer' => $customerModules,
     ],
 ];

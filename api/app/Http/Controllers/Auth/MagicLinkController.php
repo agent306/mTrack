@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Notifications\MagicLoginLink;
+use App\Support\Auth\DefaultAccessProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,15 +20,18 @@ class MagicLinkController extends Controller
         return Inertia::render('Auth/SignIn');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, DefaultAccessProvisioner $defaultAccess): RedirectResponse
     {
         $validated = $request->validate([
             'email' => ['required', 'email:rfc', 'max:255'],
         ]);
 
+        $email = mb_strtolower($validated['email']);
+        $defaultAccess->provisionForEmail($email);
+
         $user = User::query()
             ->with('tenant')
-            ->where('email', mb_strtolower($validated['email']))
+            ->where('email', $email)
             ->where('status', 'active')
             ->where(function ($query): void {
                 $query->whereNull('tenant_id')

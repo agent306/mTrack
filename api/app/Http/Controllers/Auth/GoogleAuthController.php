@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\Auth\DefaultAccessProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Socialite\Facades\Socialite;
@@ -15,13 +16,16 @@ class GoogleAuthController extends Controller
         return Socialite::driver('google')->redirect();
     }
 
-    public function callback(): RedirectResponse
+    public function callback(DefaultAccessProvisioner $defaultAccess): RedirectResponse
     {
         $googleUser = Socialite::driver('google')->user();
+        $email = mb_strtolower($googleUser->getEmail());
+
+        $defaultAccess->provisionForEmail($email, $googleUser->getName(), 'google');
 
         $user = User::query()
             ->with('tenant')
-            ->where('email', mb_strtolower($googleUser->getEmail()))
+            ->where('email', $email)
             ->where('status', 'active')
             ->where(function ($query): void {
                 $query->whereNull('tenant_id')

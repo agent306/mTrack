@@ -11,11 +11,9 @@ use App\Models\LicenseRequest;
 use App\Models\NormalizedLocationEvent;
 use App\Models\PaymentSlip;
 use App\Models\RawPayload;
-use App\Models\Role;
-use App\Models\Tenant;
 use App\Models\TenantSetting;
 use App\Models\TrackerDevice;
-use App\Models\User;
+use App\Support\Auth\DefaultAccessProvisioner;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -28,34 +26,12 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $tenant = Tenant::factory()->create([
-            'name' => 'mTrack Demo Fleet',
-        ]);
+        $tenant = app(DefaultAccessProvisioner::class)->ensureTenant('demo');
 
-        $role = Role::factory()->create([
-            'tenant_id' => $tenant->id,
-            'name' => 'Tenant Administrator',
-            'slug' => 'tenant-admin',
-            'permissions' => [
-                'modules' => collect(config('mtrack.modules.customer'))
-                    ->mapWithKeys(fn (string $module) => [$module => 'edit'])
-                    ->all(),
-            ],
-        ]);
-
-        $user = User::factory()->create([
-            'tenant_id' => $tenant->id,
-            'name' => 'mTrack Operator',
-            'email' => 'test@example.com',
-        ]);
-
-        $user->roles()->attach($role);
-
-        TenantSetting::factory()->create([
-            'tenant_id' => $tenant->id,
-            'key' => 'raw_payload.retention',
-            'value' => ['days' => $tenant->raw_payload_retention_days],
-        ]);
+        TenantSetting::query()->updateOrCreate(
+            ['tenant_id' => $tenant->id, 'key' => 'raw_payload.retention'],
+            ['value' => ['days' => $tenant->raw_payload_retention_days]]
+        );
 
         $group = FleetGroup::factory()->create([
             'tenant_id' => $tenant->id,
@@ -118,16 +94,15 @@ class DatabaseSeeder extends Seeder
             'active_device_count' => 1,
         ]);
 
-        $licenseRequest = LicenseRequest::factory()
-            ->requestedBy($user)
-            ->create([
-                'license_plan_id' => $plan->id,
-                'request_type' => 'add',
-                'requested_device_count' => 5,
-            ]);
+        $licenseRequest = LicenseRequest::factory()->create([
+            'tenant_id' => $tenant->id,
+            'license_plan_id' => $plan->id,
+            'request_type' => 'add',
+            'requested_device_count' => 5,
+        ]);
 
         PaymentSlip::factory()
-            ->forRequest($licenseRequest, $user)
+            ->forRequest($licenseRequest)
             ->create();
     }
 }
