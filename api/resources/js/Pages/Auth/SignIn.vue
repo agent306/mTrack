@@ -103,12 +103,12 @@ const submit = () => {
                 </form>
 
                 <div class="mt-5">
-                    <Link
+                    <a
                         :href="route('auth.google.redirect')"
                         class="flex h-11 items-center justify-center rounded-mtrack-md border border-line bg-muted-surface px-4 text-sm font-semibold text-body transition hover:bg-white"
                     >
                         Continue with Google
-                    </Link>
+                    </a>
                 </div>
             </div>
         </section>
