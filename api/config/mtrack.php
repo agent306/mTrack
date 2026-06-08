@@ -1,6 +1,13 @@
 <?php
 
+use App\Ingestion\Contracts\AisCdacLocationContract;
+use App\Ingestion\Contracts\AisIcatLocationContract;
+use App\Ingestion\Contracts\AisNicLocationContract;
 use App\Ingestion\Contracts\DemoJsonLocationContract;
+use App\Ingestion\Contracts\JimiLocationContract;
+use App\Ingestion\Contracts\Jt1078LocationContract;
+use App\Ingestion\Contracts\Jt808LocationContract;
+use App\Ingestion\Contracts\Vl512GnssLocationContract;
 
 $adminModules = [
     'dashboard',
@@ -54,7 +61,14 @@ return [
             'x-tracker-id',
         ],
         'contracts' => [
+            'ais-cdac' => AisCdacLocationContract::class,
+            'ais-icat' => AisIcatLocationContract::class,
+            'ais-nic' => AisNicLocationContract::class,
             'demo-json' => DemoJsonLocationContract::class,
+            'jimi' => JimiLocationContract::class,
+            'jt1078-808' => Jt1078LocationContract::class,
+            'jt808' => Jt808LocationContract::class,
+            'vl512-gnss' => Vl512GnssLocationContract::class,
         ],
     ],
 

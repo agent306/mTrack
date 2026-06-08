@@ -1,0 +1,15 @@
+{
+  "imei": "JIMI-867000111222333",
+  "gpsTime": "2026-06-08T04:00:00Z",
+  "gps": {
+    "lat": 24.8607,
+    "lng": 67.0011
+  },
+  "speedKmh": 72,
+  "heading": 92,
+  "altitude": 15,
+  "status": "moving",
+  "batteryPercent": 84,
+  "sequence": "JM-1001",
+  "firmware": "JIMI-1.0.0"
+}

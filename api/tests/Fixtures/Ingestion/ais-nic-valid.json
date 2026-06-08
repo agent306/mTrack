@@ -1,0 +1,11 @@
+{
+  "ais": {
+    "mmsi": "413000111",
+    "lat": 24.863,
+    "lon": 67.004
+  },
+  "time": "2026-06-08T04:15:00Z",
+  "speedKnots": 8,
+  "course": 122,
+  "state": "coastal-feed"
+}

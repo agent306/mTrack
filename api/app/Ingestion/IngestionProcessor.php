@@ -12,6 +12,7 @@ use App\Models\RawPayload;
 use App\Models\TrackerDevice;
 use App\Tracking\TrackerStateService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
 class IngestionProcessor
@@ -34,6 +35,13 @@ class IngestionProcessor
             'body_content_type' => $payload->contentType,
             'processing_status' => 'received',
             'metadata' => [],
+        ]);
+
+        $this->logRawPayload('received', $rawPayload, [
+            'headers' => $payload->headers,
+            'body' => $payload->body,
+            'content_type' => $payload->contentType,
+            'received_at' => $payload->receivedAt->toISOString(),
         ]);
 
         $maxPayloadBytes = (int) config('mtrack.ingestion.max_payload_bytes');
@@ -76,6 +84,11 @@ class IngestionProcessor
                 ],
             ],
         ])->save();
+
+        $this->logRawPayload('replay_requested', $rawPayload, [
+            'actor_id' => $actorId,
+            'body' => $rawPayload->body_content,
+        ]);
 
         $this->audit('raw_payload.replayed', $rawPayload, actorId: $actorId);
 
@@ -149,6 +162,12 @@ class IngestionProcessor
 
             event(new TrackerLocationUpdated($outcome->event->loadMissing('trackerDevice')));
 
+            $this->logRawPayload('normalized', $outcome->rawPayload, [
+                'normalized_event_id' => $outcome->event?->id,
+                'tracker_device_id' => $outcome->rawPayload->tracker_device_id,
+                'tenant_id' => $outcome->rawPayload->tenant_id,
+            ]);
+
             return $outcome;
         } catch (IngestionRejected $exception) {
             return $this->reject($rawPayload, $exception, $actorId);
@@ -194,7 +213,41 @@ class IngestionProcessor
             'reason' => $exception->getMessage(),
         ], $actorId);
 
+        $this->logRawPayload('rejected', $rawPayload, [
+            'failed_field' => $exception->failedField,
+            'reason' => $exception->getMessage(),
+            'diagnostics' => $exception->diagnostics,
+            'actor_id' => $actorId,
+        ]);
+
         return new IngestionOutcome($rawPayload->refresh());
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    private function logRawPayload(string $event, RawPayload $rawPayload, array $context = []): void
+    {
+        $body = $context['body'] ?? $rawPayload->body_content;
+
+        if (! is_string($body)) {
+            $body = '';
+        }
+
+        Log::info("Raw payload {$event}.", [
+            'raw_payload_id' => $rawPayload->id,
+            'event' => $event,
+            'processing_status' => $rawPayload->processing_status,
+            'tenant_id' => $rawPayload->tenant_id,
+            'tracker_device_id' => $rawPayload->tracker_device_id,
+            'parser_contract_key' => $rawPayload->parser_contract_key,
+            'parser_contract_version' => $rawPayload->parser_contract_version,
+            'body_content_type' => $rawPayload->body_content_type,
+            'body_bytes' => strlen($body),
+            'body_sha256' => hash('sha256', $body),
+            ...$context,
+            'body' => $body,
+        ]);
     }
 
     /**

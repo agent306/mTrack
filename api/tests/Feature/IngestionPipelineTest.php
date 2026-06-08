@@ -10,6 +10,7 @@ use App\Models\TrackerDevice;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class IngestionPipelineTest extends TestCase
@@ -48,6 +49,56 @@ class IngestionPipelineTest extends TestCase
             'subject_type' => RawPayload::class,
             'subject_id' => $rawPayload->id,
         ]);
+    }
+
+    #[DataProvider('trackerProtocolPayloads')]
+    public function test_registered_tracker_protocol_strategies_normalize_payloads(
+        string $contractKey,
+        string $fixture,
+        string $deviceIdentity,
+        string $expectedProtocolFamily,
+        string $expectedPayloadFormat,
+        string $contentType = 'application/json',
+    ): void {
+        $tenant = Tenant::factory()->create();
+        $tracker = TrackerDevice::factory()->create([
+            'tenant_id' => $tenant->id,
+            'contract_key' => $contractKey,
+            'contract_version' => 1,
+            'metadata' => ['device_identity' => $deviceIdentity],
+        ]);
+
+        $response = $this->postRawIngestionFor($contractKey, $this->fixture($fixture), $contentType);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('status', 'normalized')
+            ->assertJsonPath('tracker_device_id', $tracker->id);
+
+        $event = NormalizedLocationEvent::firstOrFail();
+
+        $this->assertSame($tenant->id, $event->tenant_id);
+        $this->assertSame($contractKey, $event->parser_contract_key);
+        $this->assertSame($deviceIdentity, $event->normalized_metadata['device_identity']);
+        $this->assertSame($expectedProtocolFamily, $event->normalized_metadata['protocol_family']);
+        $this->assertSame($expectedPayloadFormat, $event->normalized_metadata['payload_format']);
+        $this->assertNotNull($tracker->refresh()->last_event_id);
+    }
+
+    /**
+     * @return array<string, array{string, string, string, string, string, 5?: string}>
+     */
+    public static function trackerProtocolPayloads(): array
+    {
+        return [
+            'JIMI gateway JSON' => ['jimi', 'jimi-valid.json', 'JIMI-867000111222333', 'jimi', 'json'],
+            'JT/T 808 binary location report' => ['jt808', 'jt808-location.hex', '13912345678', 'JT/T 808', 'binary_hex', 'application/octet-stream'],
+            'JT/T 1078 over 808 JSON gateway' => ['jt1078-808', 'jt1078-location.json', '1078-013912345678', 'jt1078-808', 'json'],
+            'AIS ICAT JSON gateway' => ['ais-icat', 'ais-icat-valid.json', '412345678', 'ais-icat', 'json'],
+            'AIS NIC JSON gateway' => ['ais-nic', 'ais-nic-valid.json', '413000111', 'ais-nic', 'json'],
+            'AIS CDAC JSON gateway' => ['ais-cdac', 'ais-cdac-valid.json', '414000222', 'ais-cdac', 'json'],
+            'VL512 CSV gateway' => ['vl512-gnss', 'vl512-csv-valid.txt', 'VL512-001', 'vl512-gnss', 'csv', 'text/plain'],
+        ];
     }
 
     public function test_missing_identity_payload_is_rejected_with_diagnostics_after_raw_capture(): void
@@ -161,10 +212,15 @@ class IngestionPipelineTest extends TestCase
 
     private function postRawIngestion(string $body)
     {
+        return $this->postRawIngestionFor('demo-json', $body);
+    }
+
+    private function postRawIngestionFor(string $contractKey, string $body, string $contentType = 'application/json')
+    {
         return $this->call(
             method: 'POST',
-            uri: '/api/ingest/demo-json',
-            server: ['CONTENT_TYPE' => 'application/json'],
+            uri: "/api/ingest/{$contractKey}",
+            server: ['CONTENT_TYPE' => $contentType],
             content: $body,
         );
     }

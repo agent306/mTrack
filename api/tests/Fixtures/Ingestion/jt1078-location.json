@@ -1,0 +1,10 @@
+{
+  "terminalPhone": "1078-013912345678",
+  "timestamp": "2026-06-08T04:05:00Z",
+  "latitude": 24.8612,
+  "longitude": 67.0023,
+  "speedKmh": 36,
+  "heading": 101,
+  "altitude": 18,
+  "messageType": "location-report"
+}

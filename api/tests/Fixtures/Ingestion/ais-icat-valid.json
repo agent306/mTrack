@@ -1,0 +1,11 @@
+{
+  "mmsi": "412345678",
+  "timestamp": "2026-06-08T04:10:00Z",
+  "position": {
+    "lat": 24.862,
+    "lon": 67.003
+  },
+  "speedKnots": 12.5,
+  "heading": 118,
+  "status": "under-way"
+}

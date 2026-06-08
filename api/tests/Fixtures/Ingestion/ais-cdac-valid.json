@@ -1,0 +1,11 @@
+{
+  "vessel": {
+    "mmsi": "414000222"
+  },
+  "timestamp": "2026-06-08T04:20:00Z",
+  "latitude": 24.864,
+  "longitude": 67.005,
+  "speedKmh": 18,
+  "headingDegrees": 126,
+  "deviceStatus": "cdac-relay"
+}
