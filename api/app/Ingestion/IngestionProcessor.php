@@ -2,6 +2,7 @@
 
 namespace App\Ingestion;
 
+use App\Events\TrackerLocationUpdated;
 use App\Ingestion\Data\IngestionOutcome;
 use App\Ingestion\Data\IngestionPayload;
 use App\Ingestion\Exceptions\IngestionRejected;
@@ -9,12 +10,16 @@ use App\Models\AuditLog;
 use App\Models\NormalizedLocationEvent;
 use App\Models\RawPayload;
 use App\Models\TrackerDevice;
+use App\Tracking\TrackerStateService;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 class IngestionProcessor
 {
-    public function __construct(private readonly ContractRegistry $contracts) {}
+    public function __construct(
+        private readonly ContractRegistry $contracts,
+        private readonly TrackerStateService $trackerStates,
+    ) {}
 
     public function processIncoming(string $contractKey, IngestionPayload $payload): IngestionOutcome
     {
@@ -94,7 +99,7 @@ class IngestionProcessor
 
             $tracker = $this->resolveTracker($parsed->deviceIdentity, $contract->key(), $contract->version());
 
-            return DB::transaction(function () use ($rawPayload, $tracker, $contract, $parsed, $actorId): IngestionOutcome {
+            $outcome = DB::transaction(function () use ($rawPayload, $tracker, $contract, $parsed, $actorId): IngestionOutcome {
                 $event = NormalizedLocationEvent::query()->create([
                     'tenant_id' => $tracker->tenant_id,
                     'tracker_device_id' => $tracker->id,
@@ -132,11 +137,7 @@ class IngestionProcessor
                     ],
                 ])->save();
 
-                $tracker->forceFill([
-                    'status' => $parsed->statusMetadata['device_status'] ?? $tracker->status,
-                    'last_event_id' => $event->id,
-                    'last_seen_at' => $event->event_timestamp,
-                ])->save();
+                $this->trackerStates->markLive($tracker, $event);
 
                 $this->audit('raw_payload.normalized', $rawPayload, [
                     'normalized_event_id' => $event->id,
@@ -145,6 +146,10 @@ class IngestionProcessor
 
                 return new IngestionOutcome($rawPayload->refresh(), $event);
             });
+
+            event(new TrackerLocationUpdated($outcome->event->loadMissing('trackerDevice')));
+
+            return $outcome;
         } catch (IngestionRejected $exception) {
             return $this->reject($rawPayload, $exception, $actorId);
         }

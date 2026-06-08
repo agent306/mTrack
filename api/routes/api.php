@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\IngestionController;
 use App\Http\Controllers\Api\MobileTokenController;
 use App\Http\Controllers\Api\ReplayRawPayloadController;
 use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\TrackerLatestStateController;
 use App\Http\Controllers\Api\UserRoleController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -33,4 +34,12 @@ Route::middleware(['auth:sanctum', 'active.user', 'tenant.resolve', 'active.tena
     Route::post('/raw-payloads/{rawPayload}/replay', [ReplayRawPayloadController::class, 'store'])
         ->middleware('permission:settings,edit')
         ->name('api.raw-payloads.replay');
+
+    Route::get('/trackers/latest', [TrackerLatestStateController::class, 'index'])
+        ->middleware('permission:live,view')
+        ->name('api.trackers.latest.index');
+
+    Route::get('/trackers/{trackerDevice}/latest', [TrackerLatestStateController::class, 'show'])
+        ->middleware('permission:live,view')
+        ->name('api.trackers.latest.show');
 });

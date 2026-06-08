@@ -27,6 +27,11 @@ return [
         ],
     ],
 
+    'realtime' => [
+        'stale_after_minutes' => env('MTRACK_STALE_AFTER_MINUTES', 30),
+        'offline_after_minutes' => env('MTRACK_OFFLINE_AFTER_MINUTES', 120),
+    ],
+
     'modules' => [
         'admin' => [
             'dashboard',
