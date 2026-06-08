@@ -1,5 +1,7 @@
 <?php
 
+use App\Ingestion\Contracts\DemoJsonLocationContract;
+
 return [
     'auth' => [
         'magic_link_expiration_minutes' => env('MTRACK_MAGIC_LINK_EXPIRATION_MINUTES', 15),
@@ -9,6 +11,20 @@ return [
     'tenancy' => [
         'raw_payload_retention_presets' => [30, 90, 180, 365],
         'permission_levels' => ['hide', 'view', 'edit'],
+    ],
+
+    'ingestion' => [
+        'max_payload_bytes' => env('MTRACK_INGESTION_MAX_PAYLOAD_BYTES', 65536),
+        'diagnostic_headers' => [
+            'content-type',
+            'user-agent',
+            'x-forwarded-for',
+            'x-device-id',
+            'x-tracker-id',
+        ],
+        'contracts' => [
+            'demo-json' => DemoJsonLocationContract::class,
+        ],
     ],
 
     'modules' => [

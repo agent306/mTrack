@@ -69,6 +69,9 @@ class DatabaseSeeder extends Seeder
             'business_label' => 'vessel',
             'status' => 'moving',
             'last_seen_at' => now(),
+            'metadata' => [
+                'device_identity' => 'demo-vessel-001',
+            ],
         ]);
 
         $group->trackerDevices()->attach($tracker->id, ['tenant_id' => $tenant->id]);

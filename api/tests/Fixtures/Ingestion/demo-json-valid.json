@@ -1,0 +1,15 @@
+{
+  "deviceId": "fixture-tracker-001",
+  "timestamp": "2026-06-08T04:00:00Z",
+  "gps": {
+    "lat": 24.8607,
+    "lng": 67.0011,
+    "heading": 92.5,
+    "accuracy": 8.4
+  },
+  "speedKmh": 72,
+  "battery": 87,
+  "status": "moving",
+  "firmware": "1.0.0",
+  "sequence": "evt-100"
+}

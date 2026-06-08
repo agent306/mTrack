@@ -21,7 +21,9 @@ class TrackerDeviceFactory extends Factory
             'contract_version' => 1,
             'status' => fake()->randomElement(['online', 'offline', 'idle', 'moving']),
             'last_seen_at' => now()->subMinutes(fake()->numberBetween(1, 180)),
-            'metadata' => [],
+            'metadata' => [
+                'device_identity' => fake()->unique()->bothify('device-####'),
+            ],
         ];
     }
 }

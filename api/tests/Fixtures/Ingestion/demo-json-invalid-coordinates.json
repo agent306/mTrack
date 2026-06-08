@@ -1,0 +1,8 @@
+{
+  "deviceId": "fixture-tracker-001",
+  "timestamp": "2026-06-08T04:00:00Z",
+  "gps": {
+    "lat": 120.25,
+    "lng": 67.0011
+  }
+}
