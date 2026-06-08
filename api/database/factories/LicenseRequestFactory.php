@@ -23,7 +23,7 @@ class LicenseRequestFactory extends Factory
             'request_type' => fake()->randomElement(['add', 'renew']),
             'requested_device_count' => fake()->numberBetween(1, 20),
             'amount' => fake()->randomFloat(2, 25, 2000),
-            'currency' => 'USD',
+            'currency' => 'MVR',
             'status' => 'pending',
             'rejection_reason' => null,
             'metadata' => [],

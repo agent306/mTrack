@@ -37,7 +37,7 @@ const submit = () => {
                 </div>
                 <h1 class="text-[32px] font-bold leading-10">Monitor fleets, devices, and operational events from one tenant-aware workspace.</h1>
                 <p class="mt-4 max-w-lg text-sm leading-6 text-white/68">
-                    Foundation access is limited to provisioned mTrack users. Request a secure email link or continue with Google.
+                    Access is limited to provisioned mTrack users. Request a secure email link or continue with Google.
                 </p>
 
                 <div class="mt-10 grid gap-3 sm:grid-cols-3">

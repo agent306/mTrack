@@ -15,6 +15,7 @@ import { computed, onUnmounted, reactive, ref } from 'vue';
 import type { Component } from 'vue';
 import MTrackBadge from '../../Components/MTrackBadge.vue';
 import MTrackMetricCard from '../../Components/MTrackMetricCard.vue';
+import MTrackOpenStreetMap from '../../Components/MTrackOpenStreetMap.vue';
 import MTrackState from '../../Components/MTrackState.vue';
 import MTrackTabs from '../../Components/MTrackTabs.vue';
 import AppShell from '../../Layouts/AppShell.vue';
@@ -260,8 +261,6 @@ props.trackers.forEach((tracker) => {
 });
 
 const metricIcon = (metric: Metric) => (metric.icon ? iconByName[metric.icon] : undefined);
-const moduleSlug = (id: string) => props.modules.find((module) => module.id === id)?.slug ?? id.replaceAll('_', '-');
-const selectModule = (id: string) => router.visit(route('customer.show', { module: moduleSlug(id) }));
 const canEdit = (module: string) => props.permissions[module] === 'edit';
 
 const eventTabs = computed(() => [
@@ -291,26 +290,46 @@ const playbackEvent = computed(() => props.routeEvents[Math.min(playbackIndex.va
 const mapPoints = computed(() => props.trackers.filter((tracker) => tracker.latitude !== null && tracker.longitude !== null));
 const routePoints = computed(() => props.routeEvents);
 const maxSpeed = computed(() => Math.max(...props.tripAnalytics.speedGraph.map((point) => point.speed), 1));
+const liveMapMarkers = computed(() =>
+    mapPoints.value.map((tracker) => ({
+        id: tracker.id,
+        label: tracker.display_name,
+        subtitle: `${tracker.groups.map((group) => group.name).join(', ') || 'Ungrouped'} · ${tracker.status}`,
+        latitude: tracker.latitude,
+        longitude: tracker.longitude,
+        status: tracker.status,
+        speed: tracker.speed,
+    })),
+);
+const routeMapPoints = computed(() =>
+    routePoints.value.map((event) => ({
+        id: event.id,
+        label: event.tracker,
+        subtitle: event.event_timestamp,
+        latitude: event.latitude,
+        longitude: event.longitude,
+        status: 'route',
+        speed: event.speed,
+    })),
+);
+const playbackMapMarker = computed(() => {
+    const event = playbackEvent.value;
 
-const markerStyle = (latitude: number | null, longitude: number | null, source: Array<{ latitude: number | null; longitude: number | null }>) => {
-    if (latitude === null || longitude === null) {
-        return {};
-    }
-
-    const latitudes = source.map((point) => point.latitude).filter((value): value is number => value !== null);
-    const longitudes = source.map((point) => point.longitude).filter((value): value is number => value !== null);
-    const minLat = Math.min(...latitudes, latitude);
-    const maxLat = Math.max(...latitudes, latitude);
-    const minLng = Math.min(...longitudes, longitude);
-    const maxLng = Math.max(...longitudes, longitude);
-    const latRange = Math.max(maxLat - minLat, 0.01);
-    const lngRange = Math.max(maxLng - minLng, 0.01);
-
-    return {
-        left: `${10 + ((longitude - minLng) / lngRange) * 80}%`,
-        top: `${90 - ((latitude - minLat) / latRange) * 80}%`,
-    };
-};
+    return event
+        ? [
+              {
+                  id: `playback-${event.id}`,
+                  label: event.tracker,
+                  subtitle: event.event_timestamp,
+                  latitude: event.latitude,
+                  longitude: event.longitude,
+                  status: 'moving',
+                  speed: event.speed,
+              },
+          ]
+        : [];
+});
+const connectionKeyStatus = computed(() => (props.settings.api_token_preview === 'Not generated' ? 'Not generated' : props.settings.api_token_preview));
 
 const badgeTone = (status: string): Tone => {
     if (['active', 'approved', 'processed', 'moving', 'resolved', 'online'].includes(status)) return 'success';
@@ -384,20 +403,15 @@ const exportCsv = (report: string) => {
 </script>
 
 <template>
-    <Head title="Customer web" />
+    <Head title="Fleet Operations" />
 
     <AppShell
         surface="customer"
         :allowed-modules="allowedModules"
-        title="Customer web"
-        description="Tenant-scoped fleet monitoring, playback, reporting, billing, settings, and audit workflows."
+        title="Fleet Operations"
     >
         <div v-if="page.props.flash.status" class="mb-4 rounded-mtrack-md border border-brand/30 bg-brand/10 px-4 py-3 text-sm font-semibold text-brand-hover">
             {{ page.props.flash.status }}
-        </div>
-
-        <div class="mb-6 overflow-x-auto">
-            <MTrackTabs :tabs="modules" :active-id="activeModule" @select="selectModule" />
         </div>
 
         <section v-if="activeModule === 'dashboard'" class="space-y-6">
@@ -447,20 +461,8 @@ const exportCsv = (report: string) => {
         </section>
 
         <section v-else-if="activeModule === 'live'" class="grid gap-6 xl:grid-cols-[1fr_380px]">
-            <article class="mtrack-map-panel overflow-hidden">
-                <div class="osm-map relative min-h-[560px]">
-                    <div
-                        v-for="tracker in mapPoints"
-                        :key="tracker.id"
-                        class="absolute z-10 -translate-x-1/2 -translate-y-1/2"
-                        :style="markerStyle(tracker.latitude, tracker.longitude, mapPoints)"
-                    >
-                        <div class="grid size-8 place-items-center rounded-full border-2 border-white bg-brand text-xs font-bold text-primary-dark shadow-overlay">
-                            {{ tracker.display_name.slice(0, 1) }}
-                        </div>
-                    </div>
-                    <div class="absolute bottom-3 right-3 rounded bg-white/90 px-2 py-1 text-xs font-semibold text-muted">OpenStreetMap</div>
-                </div>
+            <article class="mtrack-map-panel overflow-hidden p-2">
+                <MTrackOpenStreetMap :markers="liveMapMarkers" min-height="560px" :zoom="12" />
             </article>
 
             <aside class="mtrack-panel overflow-hidden">
@@ -507,24 +509,7 @@ const exportCsv = (report: string) => {
 
             <div class="grid gap-6 xl:grid-cols-[1fr_420px]">
                 <article class="mtrack-map-panel overflow-hidden">
-                    <div class="osm-map relative min-h-[520px]">
-                        <div
-                            v-for="event in routePoints"
-                            :key="event.id"
-                            class="absolute size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary-dark/50"
-                            :style="markerStyle(event.latitude, event.longitude, routePoints)"
-                        />
-                        <div
-                            v-if="playbackEvent"
-                            class="absolute z-10 -translate-x-1/2 -translate-y-1/2"
-                            :style="markerStyle(playbackEvent.latitude, playbackEvent.longitude, routePoints)"
-                        >
-                            <div class="grid size-10 place-items-center rounded-full border-2 border-white bg-brand text-xs font-bold text-primary-dark shadow-overlay">
-                                {{ playbackEvent.tracker.slice(0, 1) }}
-                            </div>
-                        </div>
-                        <div class="absolute bottom-3 right-3 rounded bg-white/90 px-2 py-1 text-xs font-semibold text-muted">OpenStreetMap playback</div>
-                    </div>
+                    <MTrackOpenStreetMap :markers="playbackMapMarker" :path="routeMapPoints" min-height="520px" :zoom="12" />
                     <div class="border-t border-line bg-surface p-4">
                         <input v-model.number="playbackIndex" class="w-full accent-brand" type="range" min="0" :max="Math.max(routeEvents.length - 1, 0)" />
                     </div>
@@ -740,41 +725,82 @@ const exportCsv = (report: string) => {
             </article>
         </section>
 
-        <section v-else-if="activeModule === 'settings'" class="grid gap-6 xl:grid-cols-[360px_1fr]">
-            <aside class="mtrack-panel p-5">
-                <h2 class="text-section-title">Preferences and API token</h2>
-                <div class="mt-4 space-y-3">
-                    <select v-model="settingsForm.dashboard_density" class="mtrack-select" :disabled="!canEdit('settings')">
-                        <option value="compact">Compact dashboard</option>
-                        <option value="comfortable">Comfortable dashboard</option>
-                    </select>
-                    <input v-model.number="settingsForm.default_map_zoom" class="mtrack-input" type="number" min="4" max="18" :disabled="!canEdit('settings')" />
-                    <select v-model.number="settingsForm.raw_payload_retention_days" class="mtrack-select" :disabled="!canEdit('settings')">
-                        <option :value="30">30 days</option>
-                        <option :value="90">90 days</option>
-                        <option :value="180">180 days</option>
-                        <option :value="365">365 days</option>
-                    </select>
-                    <button type="button" class="mtrack-button-primary w-full" :disabled="!canEdit('settings')" @click="saveSettings">Save settings</button>
-                    <button type="button" class="mtrack-button-secondary w-full" :disabled="!canEdit('settings')" @click="regenerateApiToken">Regenerate API token</button>
-                    <button type="button" class="mtrack-button-secondary w-full" @click="exportCsv('logs')">Export logs</button>
-                    <div class="text-sm text-muted">Token {{ settings.api_token_preview }} · {{ formatDate(settings.api_token_rotated_at) }}</div>
-                </div>
-            </aside>
-            <article class="mtrack-panel overflow-hidden">
-                <div class="border-b border-line px-5 py-4"><h2 class="text-section-title">Users and roles</h2></div>
-                <div class="grid gap-px bg-line md:grid-cols-2">
-                    <div v-for="user in users" :key="user.id" class="bg-surface p-4">
-                        <div class="font-semibold">{{ user.name }}</div>
-                        <div class="text-sm text-muted">{{ user.email }}</div>
-                        <div class="mt-2 text-xs text-muted">{{ user.roles.join(', ') || 'No role' }}</div>
+        <section v-else-if="activeModule === 'settings'" class="mtrack-page-section">
+            <div class="grid gap-4 md:grid-cols-3">
+                <MTrackMetricCard label="Dashboard view" :value="settingsForm.dashboard_density" helper="Default layout comfort" tone="brand" :icon="Gauge" />
+                <MTrackMetricCard label="Map zoom" :value="settingsForm.default_map_zoom" helper="Starting zoom for fleet maps" tone="success" :icon="Map" />
+                <MTrackMetricCard label="Data history" :value="`${settingsForm.raw_payload_retention_days} days`" helper="Tracker messages retained" tone="info" :icon="Activity" />
+            </div>
+
+            <div class="grid gap-6 xl:grid-cols-[420px_1fr]">
+                <aside class="mtrack-panel overflow-hidden">
+                    <div class="mtrack-section-header">
+                        <div>
+                            <div class="mtrack-section-kicker">Workspace</div>
+                            <h2 class="text-section-title">Preferences</h2>
+                        </div>
                     </div>
-                    <div v-for="role in roles" :key="`role-${role.id}`" class="bg-surface p-4">
-                        <div class="font-semibold">{{ role.name }}</div>
-                        <div class="text-sm text-muted">{{ role.users_count }} users</div>
+                    <div class="space-y-4 p-5">
+                        <label class="grid gap-2">
+                            <span class="mtrack-label">Dashboard spacing</span>
+                            <select v-model="settingsForm.dashboard_density" class="mtrack-select" :disabled="!canEdit('settings')">
+                                <option value="compact">Compact</option>
+                                <option value="comfortable">Comfortable</option>
+                            </select>
+                        </label>
+                        <label class="grid gap-2">
+                            <span class="mtrack-label">Default map zoom</span>
+                            <input v-model.number="settingsForm.default_map_zoom" class="mtrack-input" type="number" min="4" max="18" :disabled="!canEdit('settings')" />
+                        </label>
+                        <label class="grid gap-2">
+                            <span class="mtrack-label">Tracker data history</span>
+                            <select v-model.number="settingsForm.raw_payload_retention_days" class="mtrack-select" :disabled="!canEdit('settings')">
+                                <option :value="30">30 days</option>
+                                <option :value="90">90 days</option>
+                                <option :value="180">180 days</option>
+                                <option :value="365">365 days</option>
+                            </select>
+                        </label>
+                        <button type="button" class="mtrack-button-primary w-full" :disabled="!canEdit('settings')" @click="saveSettings">Save preferences</button>
                     </div>
-                </div>
-            </article>
+                </aside>
+
+                <article class="mtrack-panel overflow-hidden">
+                    <div class="mtrack-section-header">
+                        <div>
+                            <div class="mtrack-section-kicker">Tracker connection</div>
+                            <h2 class="text-section-title">Connection key</h2>
+                        </div>
+                        <button type="button" class="mtrack-button-secondary" :disabled="!canEdit('settings')" @click="regenerateApiToken">Rotate key</button>
+                    </div>
+                    <div class="grid gap-px bg-line md:grid-cols-2">
+                        <div class="bg-surface p-5">
+                            <div class="text-xs font-bold uppercase text-muted">Current key</div>
+                            <div class="mt-2 break-words text-lg font-bold text-body">{{ connectionKeyStatus }}</div>
+                            <div class="mt-2 text-sm text-muted">Last changed {{ formatDate(settings.api_token_rotated_at) }}</div>
+                        </div>
+                        <div class="bg-surface p-5">
+                            <div class="text-xs font-bold uppercase text-muted">Exports</div>
+                            <div class="mt-2 text-lg font-bold text-body">Fleet logs</div>
+                            <button type="button" class="mtrack-button-secondary mt-4" @click="exportCsv('logs')">Export logs</button>
+                        </div>
+                    </div>
+                    <div class="grid gap-px bg-line md:grid-cols-2">
+                        <div v-for="user in users" :key="user.id" class="bg-surface p-5">
+                            <div class="font-semibold">{{ user.name }}</div>
+                            <div class="text-sm text-muted">{{ user.email }}</div>
+                            <div class="mt-2 flex flex-wrap gap-1">
+                                <MTrackBadge v-for="role in user.roles" :key="role" :label="role" tone="info" />
+                                <span v-if="!user.roles.length" class="text-sm text-muted">No role assigned</span>
+                            </div>
+                        </div>
+                        <div v-for="role in roles" :key="`role-${role.id}`" class="bg-surface p-5">
+                            <div class="font-semibold">{{ role.name }}</div>
+                            <div class="text-sm text-muted">{{ role.users_count }} users</div>
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
 
         <section v-else-if="activeModule === 'billing'" class="grid gap-6 xl:grid-cols-[360px_1fr]">
@@ -865,19 +891,3 @@ const exportCsv = (report: string) => {
         <MTrackState v-else title="No module available" message="This module is hidden by your role permissions." />
     </AppShell>
 </template>
-
-<style scoped>
-.osm-map {
-    background-color: #e8eef3;
-    background-image:
-        linear-gradient(90deg, rgba(11, 16, 38, 0.08) 1px, transparent 1px),
-        linear-gradient(rgba(11, 16, 38, 0.08) 1px, transparent 1px),
-        radial-gradient(circle at 22% 70%, rgba(20, 184, 166, 0.18), transparent 22%),
-        radial-gradient(circle at 72% 28%, rgba(103, 232, 249, 0.18), transparent 26%);
-    background-size:
-        64px 64px,
-        64px 64px,
-        auto,
-        auto;
-}
-</style>

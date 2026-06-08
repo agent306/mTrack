@@ -544,7 +544,7 @@ class AdminController extends Controller
                 'id' => $slip->id,
                 'customer' => $slip->tenant?->name ?? 'Unknown',
                 'status' => $slip->status,
-                'amount' => $this->money($slip->amount, $slip->licenseRequest?->currency ?? 'USD'),
+                'amount' => $this->money($slip->amount, $slip->licenseRequest?->currency ?? 'MVR'),
                 'filename' => $slip->original_filename ?? basename($slip->file_path),
                 'request' => $slip->licenseRequest?->request_type ?? 'license',
                 'devices' => $slip->licenseRequest?->requested_device_count ?? 0,
@@ -778,20 +778,12 @@ class AdminController extends Controller
     private function settingRows(): array
     {
         return [
-            ['label' => 'App URL', 'value' => (string) config('app.url')],
-            ['label' => 'Environment', 'value' => (string) app()->environment()],
-            ['label' => 'Debug mode', 'value' => config('app.debug') ? 'Enabled' : 'Disabled'],
-            ['label' => 'Database', 'value' => (string) config('database.default')],
-            ['label' => 'Queue', 'value' => (string) config('queue.default')],
-            ['label' => 'Cache', 'value' => (string) config('cache.default')],
-            ['label' => 'Reverb host', 'value' => (string) config('broadcasting.connections.reverb.options.host')],
-            ['label' => 'Reverb scheme', 'value' => (string) config('broadcasting.connections.reverb.options.scheme')],
-            ['label' => 'Horizon path', 'value' => (string) config('horizon.path', 'horizon')],
-            ['label' => 'Payload limit', 'value' => number_format((int) config('mtrack.ingestion.max_payload_bytes')).' bytes'],
-            ['label' => 'Ingestion rate limit', 'value' => config('mtrack.ingestion.rate_limit_attempts').' requests / '.config('mtrack.ingestion.rate_limit_decay_minutes').' min'],
-            ['label' => 'Raw retention presets', 'value' => implode(', ', config('mtrack.tenancy.raw_payload_retention_presets')).' days'],
-            ['label' => 'Backup path', 'value' => (string) config('mtrack.operations.backup_path')],
-            ['label' => 'Default access emails', 'value' => collect(config('mtrack.default_access.users'))->pluck('email')->implode(', ')],
+            ['label' => 'Public web address', 'value' => (string) config('app.url')],
+            ['label' => 'Customer data history', 'value' => implode(', ', config('mtrack.tenancy.raw_payload_retention_presets')).' day options'],
+            ['label' => 'Tracker message size', 'value' => number_format((int) config('mtrack.ingestion.max_payload_bytes')).' bytes per message'],
+            ['label' => 'Tracker message volume', 'value' => config('mtrack.ingestion.rate_limit_attempts').' messages per '.config('mtrack.ingestion.rate_limit_decay_minutes').' minute'],
+            ['label' => 'Backups', 'value' => 'Stored under '.config('mtrack.operations.backup_path')],
+            ['label' => 'Default access list', 'value' => collect(config('mtrack.default_access.users'))->pluck('email')->implode(', ')],
         ];
     }
 
@@ -883,7 +875,7 @@ class AdminController extends Controller
         );
     }
 
-    private function money(mixed $amount, string $currency = 'USD'): string
+    private function money(mixed $amount, string $currency = 'MVR'): string
     {
         return $currency.' '.number_format((float) $amount, 2);
     }

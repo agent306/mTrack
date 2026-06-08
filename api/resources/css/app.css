@@ -84,7 +84,7 @@
     }
 
     .mtrack-map-panel {
-        @apply rounded-mtrack-md border border-line bg-surface shadow-map-panel;
+        @apply rounded-mtrack-md border border-line bg-surface shadow-card;
     }
 
     .mtrack-button-primary {
@@ -129,5 +129,55 @@
 
     .mtrack-badge {
         @apply inline-flex h-6 items-center rounded-full px-2.5 text-xs font-semibold;
+    }
+
+    .mtrack-page-section {
+        @apply space-y-5;
+    }
+
+    .mtrack-section-header {
+        @apply flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4;
+    }
+
+    .mtrack-section-title-block {
+        @apply min-w-0;
+    }
+
+    .mtrack-section-kicker {
+        @apply text-xs font-semibold uppercase text-muted;
+    }
+
+    .mtrack-control-row {
+        @apply grid gap-3 rounded-mtrack-md border border-line bg-surface p-4 shadow-card;
+    }
+}
+
+@layer utilities {
+    .mtrack-leaflet-marker {
+        @apply rounded-full;
+    }
+
+    .mtrack-leaflet-marker span {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border: 2px solid #ffffff;
+        border-radius: 9999px;
+        color: #ffffff;
+        font-size: 12px;
+        font-weight: 800;
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.28);
+    }
+
+    .leaflet-container {
+        font: inherit;
+    }
+
+    .leaflet-popup-content {
+        margin: 10px 12px;
+        color: #111827;
+        font-size: 12px;
+        line-height: 18px;
     }
 }

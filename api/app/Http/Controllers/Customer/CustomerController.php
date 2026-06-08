@@ -42,7 +42,7 @@ class CustomerController extends Controller
         'geofence' => ['label' => 'Geofence', 'slug' => 'geofence'],
         'analysis' => ['label' => 'Analysis', 'slug' => 'analysis'],
         'routes' => ['label' => 'Routes', 'slug' => 'routes'],
-        'settings' => ['label' => 'Setting', 'slug' => 'setting'],
+        'settings' => ['label' => 'Settings', 'slug' => 'setting'],
         'billing' => ['label' => 'Billing', 'slug' => 'billing'],
         'audit_log' => ['label' => 'Audit Log', 'slug' => 'audit-log'],
     ];
@@ -246,7 +246,7 @@ class CustomerController extends Controller
 
         $this->audit($request, 'api_token.regenerated', $request->user()?->tenant);
 
-        return back()->with('status', 'API token regenerated. Copy the new token from the secure operator workflow.');
+        return back()->with('status', 'Connection key rotated. Share the new key through your secure operations process.');
     }
 
     public function exportCsv(Request $request, string $report, ReportExportService $exports, AuditLogger $audit): StreamedResponse
@@ -837,7 +837,7 @@ class CustomerController extends Controller
         return $earthRadiusKm * 2 * atan2(sqrt($haversine), sqrt(1 - $haversine));
     }
 
-    private function money(mixed $amount, string $currency = 'USD'): string
+    private function money(mixed $amount, string $currency = 'MVR'): string
     {
         return $currency.' '.number_format((float) $amount, 2);
     }

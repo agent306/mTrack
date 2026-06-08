@@ -21,7 +21,7 @@ class LicensePlanFactory extends Factory
             'base_features' => ['tracking', 'reports', 'geofences'],
             'included_device_count' => fake()->numberBetween(5, 100),
             'price_amount' => fake()->randomFloat(2, 50, 5000),
-            'currency' => 'USD',
+            'currency' => 'MVR',
             'status' => 'active',
             'metadata' => [],
         ];

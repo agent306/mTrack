@@ -22,6 +22,7 @@ import { computed, reactive, ref, watch } from 'vue';
 import type { Component } from 'vue';
 import MTrackBadge from '../../Components/MTrackBadge.vue';
 import MTrackMetricCard from '../../Components/MTrackMetricCard.vue';
+import MTrackOpenStreetMap from '../../Components/MTrackOpenStreetMap.vue';
 import MTrackState from '../../Components/MTrackState.vue';
 import MTrackTabs from '../../Components/MTrackTabs.vue';
 import AppShell from '../../Layouts/AppShell.vue';
@@ -280,7 +281,6 @@ props.users.forEach((user) => {
     userRoleForms[user.id] = user.roles.map((role) => String(role.id));
 });
 
-const selectModule = (id: string) => router.visit(route('admin.show', { module: id }));
 const roleModules = computed(() => (roleDraft.scope === 'platform' ? props.adminModules : props.customerModules));
 const roleOptionsForUser = (user: UserRow) => props.roles.filter((role) => role.tenant_id === user.tenant_id);
 
@@ -338,29 +338,37 @@ const filteredRawPayloads = computed(() =>
         return trackerMatch && contractMatch && identityMatch;
     }),
 );
+const activeUserCount = computed(() => props.users.filter((user) => user.status === 'active').length);
+const platformAdminCount = computed(() => props.users.filter((user) => user.roles.some((role) => role.scope === 'platform')).length);
+const tenantRoleCount = computed(() => props.roles.filter((role) => role.scope === 'tenant').length);
+const moduleLabel = (module: string) => module.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+const roleEditableModuleCount = (role: RoleRow) => Object.values(role.permissions.modules ?? {}).filter((level) => level === 'edit').length;
+const roleVisibleModuleCount = (role: RoleRow) => Object.values(role.permissions.modules ?? {}).filter((level) => level === 'view').length;
 
 const mapPoints = computed(() => props.trackers.filter((tracker) => tracker.latitude !== null && tracker.longitude !== null));
 const routeMapPoints = computed(() => props.routeEvents.filter((event) => event.latitude !== null && event.longitude !== null).slice(0, 35));
-
-const markerStyle = (latitude: number | null, longitude: number | null, source: Array<{ latitude: number | null; longitude: number | null }>) => {
-    if (latitude === null || longitude === null) {
-        return {};
-    }
-
-    const latitudes = source.map((point) => point.latitude).filter((value): value is number => value !== null);
-    const longitudes = source.map((point) => point.longitude).filter((value): value is number => value !== null);
-    const minLat = Math.min(...latitudes, latitude);
-    const maxLat = Math.max(...latitudes, latitude);
-    const minLng = Math.min(...longitudes, longitude);
-    const maxLng = Math.max(...longitudes, longitude);
-    const latRange = Math.max(maxLat - minLat, 0.01);
-    const lngRange = Math.max(maxLng - minLng, 0.01);
-
-    return {
-        left: `${10 + ((longitude - minLng) / lngRange) * 80}%`,
-        top: `${90 - ((latitude - minLat) / latRange) * 80}%`,
-    };
-};
+const liveMapMarkers = computed(() =>
+    mapPoints.value.map((tracker) => ({
+        id: tracker.id,
+        label: tracker.display_name,
+        subtitle: `${tracker.customer} · ${tracker.status}`,
+        latitude: tracker.latitude,
+        longitude: tracker.longitude,
+        status: tracker.status,
+        speed: tracker.speed,
+    })),
+);
+const playbackMapPoints = computed(() =>
+    routeMapPoints.value.map((event) => ({
+        id: event.id,
+        label: event.tracker,
+        subtitle: `${event.customer} · ${formatDate(event.event_timestamp)}`,
+        latitude: event.latitude,
+        longitude: event.longitude,
+        status: 'route',
+        speed: event.speed,
+    })),
+);
 
 const badgeTone = (status: string): Tone => {
     if (['active', 'approved', 'processed', 'moving', 'resolved'].includes(status)) {
@@ -496,9 +504,9 @@ const updateUserRoles = (user: UserRow) => {
 </script>
 
 <template>
-    <Head title="Admin web" />
+    <Head title="Platform Operations" />
 
-    <AppShell surface="admin" title="Admin web" description="Platform administrator modules for live tracking, billing, customers, devices, geofences, events, playback, and raw logs.">
+    <AppShell surface="admin" title="Platform Operations">
         <div v-if="page.props.flash.status" class="mb-4 rounded-mtrack-md border border-brand/30 bg-brand/10 px-4 py-3 text-sm font-semibold text-brand-hover">
             {{ page.props.flash.status }}
         </div>
@@ -582,22 +590,8 @@ const updateUserRoles = (user: UserRow) => {
         </section>
 
         <section v-else-if="activeModule === 'live'" class="grid gap-6 xl:grid-cols-[1fr_380px]">
-            <article class="mtrack-map-panel overflow-hidden">
-                <div class="osm-map relative min-h-[560px]">
-                    <div
-                        v-for="tracker in mapPoints"
-                        :key="tracker.id"
-                        class="absolute z-10 -translate-x-1/2 -translate-y-1/2"
-                        :style="markerStyle(tracker.latitude, tracker.longitude, mapPoints)"
-                    >
-                        <div class="grid size-8 place-items-center rounded-full border-2 border-white bg-brand text-xs font-bold text-primary-dark shadow-overlay">
-                            {{ tracker.display_name.slice(0, 1) }}
-                        </div>
-                    </div>
-                    <div class="absolute bottom-3 right-3 rounded bg-white/90 px-2 py-1 text-xs font-semibold text-muted">
-                        OpenStreetMap
-                    </div>
-                </div>
+            <article class="mtrack-map-panel overflow-hidden p-2">
+                <MTrackOpenStreetMap :markers="liveMapMarkers" min-height="560px" :zoom="12" />
             </article>
 
             <aside class="mtrack-panel overflow-hidden">
@@ -638,17 +632,7 @@ const updateUserRoles = (user: UserRow) => {
 
             <div class="grid gap-6 xl:grid-cols-[1fr_420px]">
                 <article class="mtrack-map-panel overflow-hidden">
-                    <div class="osm-map relative min-h-[520px]">
-                        <div
-                            v-for="event in routeMapPoints"
-                            :key="event.id"
-                            class="absolute z-10 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary-dark ring-2 ring-brand"
-                            :style="markerStyle(event.latitude, event.longitude, routeMapPoints)"
-                        />
-                        <div class="absolute bottom-3 right-3 rounded bg-white/90 px-2 py-1 text-xs font-semibold text-muted">
-                            OpenStreetMap playback
-                        </div>
-                    </div>
+                    <MTrackOpenStreetMap :markers="playbackMapPoints" :path="playbackMapPoints" min-height="520px" :zoom="12" />
                 </article>
                 <article class="mtrack-panel overflow-hidden">
                     <div class="border-b border-line px-5 py-4">
@@ -999,33 +983,52 @@ const updateUserRoles = (user: UserRow) => {
             </article>
         </section>
 
-        <section v-else-if="activeModule === 'users-roles'" class="space-y-6">
-            <div class="grid gap-6 xl:grid-cols-[420px_1fr]">
-                <aside class="mtrack-panel p-5">
-                    <h2 class="text-section-title">Create role</h2>
-                    <div class="mt-4 space-y-3">
-                        <input v-model="roleDraft.name" class="mtrack-input" placeholder="Role name" />
-                        <input v-model="roleDraft.slug" class="mtrack-input" placeholder="Optional slug" />
+        <section v-else-if="activeModule === 'users-roles'" class="mtrack-page-section">
+            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <MTrackMetricCard label="Active users" :value="activeUserCount" helper="People who can sign in" :icon="UserPlus" tone="brand" />
+                <MTrackMetricCard label="Platform admins" :value="platformAdminCount" helper="Can manage all customers" :icon="UserPlus" tone="success" />
+                <MTrackMetricCard label="Access profiles" :value="roles.length" helper="Reusable permission sets" :icon="Layers" tone="info" />
+                <MTrackMetricCard label="Customer profiles" :value="tenantRoleCount" helper="Tenant-level access profiles" :icon="Building2" tone="neutral" />
+            </div>
+
+            <div class="grid gap-6 xl:grid-cols-[400px_1fr]">
+                <aside class="mtrack-panel overflow-hidden">
+                    <div class="mtrack-section-header">
+                        <div>
+                            <div class="mtrack-section-kicker">New access profile</div>
+                            <h2 class="text-section-title">Create role</h2>
+                        </div>
+                    </div>
+                    <div class="space-y-4 p-5">
+                        <div class="grid gap-3">
+                            <input v-model="roleDraft.name" class="mtrack-input" placeholder="Role name" />
+                            <input v-model="roleDraft.slug" class="mtrack-input" placeholder="Short code, optional" />
+                        </div>
+
                         <div class="grid grid-cols-2 gap-2">
                             <button type="button" :class="[roleDraft.scope === 'platform' ? 'mtrack-button-primary' : 'mtrack-button-secondary']" @click="roleDraft.scope = 'platform'">
                                 Platform
                             </button>
                             <button type="button" :class="[roleDraft.scope === 'tenant' ? 'mtrack-button-primary' : 'mtrack-button-secondary']" @click="roleDraft.scope = 'tenant'">
-                                Tenant
+                                Customer
                             </button>
                         </div>
+
                         <select v-if="roleDraft.scope === 'tenant'" v-model="roleDraft.tenant_id" class="mtrack-select">
-                            <option value="">Customer</option>
+                            <option value="">Choose customer</option>
                             <option v-for="customer in customers" :key="customer.id" :value="String(customer.id)">{{ customer.name }}</option>
                         </select>
 
                         <div class="rounded-mtrack-md border border-line">
-                            <div class="border-b border-line px-3 py-2 text-xs font-bold uppercase text-muted">Module permissions</div>
-                            <div class="max-h-72 overflow-y-auto p-3">
-                                <div v-for="module in roleModules" :key="module" class="grid grid-cols-[1fr_120px] items-center gap-3 py-2">
-                                    <span class="text-sm font-semibold text-body">{{ module.replaceAll('_', ' ') }}</span>
+                            <div class="grid grid-cols-[1fr_116px] border-b border-line bg-muted-surface px-3 py-2 text-xs font-bold uppercase text-muted">
+                                <span>Area</span>
+                                <span>Access</span>
+                            </div>
+                            <div class="max-h-80 overflow-y-auto p-3">
+                                <div v-for="module in roleModules" :key="module" class="grid grid-cols-[1fr_116px] items-center gap-3 border-b border-line/70 py-2 last:border-b-0">
+                                    <span class="truncate text-sm font-semibold text-body">{{ moduleLabel(module) }}</span>
                                     <select v-model="roleDraft.permissions[module]" class="mtrack-select h-9 text-xs">
-                                        <option v-for="level in permissionLevels" :key="level" :value="level">{{ level }}</option>
+                                        <option v-for="level in permissionLevels" :key="level" :value="level">{{ moduleLabel(level) }}</option>
                                     </select>
                                 </div>
                             </div>
@@ -1036,149 +1039,141 @@ const updateUserRoles = (user: UserRow) => {
                 </aside>
 
                 <article class="mtrack-panel overflow-hidden">
-                    <div class="border-b border-line px-5 py-4">
-                        <h2 class="text-section-title">Users</h2>
+                    <div class="mtrack-section-header">
+                        <div>
+                            <div class="mtrack-section-kicker">People</div>
+                            <h2 class="text-section-title">Assign roles</h2>
+                        </div>
                     </div>
-                    <div v-if="users.length" class="overflow-x-auto">
-                        <table class="mtrack-table">
-                            <thead>
-                                <tr>
-                                    <th>User</th>
-                                    <th>Scope</th>
-                                    <th>Status</th>
-                                    <th>Roles</th>
-                                    <th>Assign</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="user in users" :key="user.id">
-                                    <td>
-                                        <div class="font-semibold">{{ user.name }}</div>
-                                        <div class="text-xs text-muted">{{ user.email }}</div>
-                                    </td>
-                                    <td>{{ user.tenant }}</td>
-                                    <td>
-                                        <MTrackBadge :label="user.status" :tone="badgeTone(user.status)" />
-                                        <div class="mt-1 text-xs text-muted">{{ user.auth_provider }} · {{ formatDate(user.last_login_at) }}</div>
-                                    </td>
-                                    <td>
-                                        <div class="flex max-w-sm flex-wrap gap-1">
-                                            <MTrackBadge v-for="role in user.roles" :key="role.id" :label="role.slug" tone="info" />
-                                            <span v-if="!user.roles.length" class="text-sm text-muted">No roles</span>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div class="grid min-w-[280px] gap-2 md:grid-cols-[1fr_auto]">
-                                            <select v-model="userRoleForms[user.id]" class="mtrack-select min-h-20" multiple>
-                                                <option v-for="role in roleOptionsForUser(user)" :key="role.id" :value="String(role.id)">
-                                                    {{ role.name }}
-                                                </option>
-                                            </select>
-                                            <button type="button" class="mtrack-button-secondary" @click="updateUserRoles(user)">Save</button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div v-if="users.length" class="divide-y divide-line">
+                        <div v-for="user in users" :key="user.id" class="grid gap-4 p-5 lg:grid-cols-[minmax(240px,1fr)_minmax(240px,360px)_auto] lg:items-center">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-3">
+                                    <div class="grid size-10 shrink-0 place-items-center rounded-full bg-primary-dark text-sm font-bold text-white">
+                                        {{ user.name.slice(0, 1) }}
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="truncate font-bold text-body">{{ user.name }}</div>
+                                        <div class="truncate text-sm text-muted">{{ user.email }}</div>
+                                    </div>
+                                </div>
+                                <div class="mt-3 flex flex-wrap gap-2">
+                                    <MTrackBadge :label="user.tenant" tone="neutral" />
+                                    <MTrackBadge :label="user.status" :tone="badgeTone(user.status)" />
+                                    <span class="text-xs font-semibold text-muted">{{ user.auth_provider }} · {{ formatDate(user.last_login_at) }}</span>
+                                </div>
+                            </div>
+
+                            <div class="min-w-0">
+                                <div class="mb-2 flex flex-wrap gap-1">
+                                    <MTrackBadge v-for="role in user.roles" :key="role.id" :label="role.name" tone="info" />
+                                    <span v-if="!user.roles.length" class="text-sm font-semibold text-muted">No roles assigned</span>
+                                </div>
+                                <select v-model="userRoleForms[user.id]" class="mtrack-select min-h-24" multiple>
+                                    <option v-for="role in roleOptionsForUser(user)" :key="role.id" :value="String(role.id)">
+                                        {{ role.name }}
+                                    </option>
+                                </select>
+                            </div>
+
+                            <button type="button" class="mtrack-button-secondary" @click="updateUserRoles(user)">Update</button>
+                        </div>
                     </div>
-                    <MTrackState v-else title="No registered users" message="Configured users appear here after their first magic-link or Google sign-in." />
+                    <MTrackState v-else title="No registered users" message="Users appear here after sign-in." />
                 </article>
             </div>
 
             <article class="mtrack-panel overflow-hidden">
-                <div class="border-b border-line px-5 py-4">
-                    <h2 class="text-section-title">Roles</h2>
+                <div class="mtrack-section-header">
+                    <div>
+                        <div class="mtrack-section-kicker">Profiles</div>
+                        <h2 class="text-section-title">Role coverage</h2>
+                    </div>
                 </div>
-                <div v-if="roles.length" class="overflow-x-auto">
-                    <table class="mtrack-table">
-                        <thead>
-                            <tr>
-                                <th>Role</th>
-                                <th>Scope</th>
-                                <th>Users</th>
-                                <th>Permissions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="role in roles" :key="role.id">
-                                <td>
-                                    <div class="font-semibold">{{ role.name }}</div>
-                                    <div class="text-xs text-muted">{{ role.slug }}</div>
-                                </td>
-                                <td>{{ role.tenant }} · {{ role.scope }}</td>
-                                <td>{{ role.users_count }}</td>
-                                <td>
-                                    <div class="flex max-w-2xl flex-wrap gap-1">
-                                        <MTrackBadge
-                                            v-for="(level, module) in role.permissions.modules ?? {}"
-                                            :key="`${role.id}-${module}`"
-                                            :label="`${String(module).replaceAll('_', ' ')}: ${level}`"
-                                            :tone="level === 'edit' ? 'success' : level === 'view' ? 'info' : 'neutral'"
-                                        />
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div v-if="roles.length" class="grid gap-px bg-line md:grid-cols-2 xl:grid-cols-3">
+                    <div v-for="role in roles" :key="role.id" class="bg-surface p-5">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="truncate text-sm font-bold text-body">{{ role.name }}</div>
+                                <div class="mt-1 text-xs font-semibold text-muted">{{ role.tenant }} · {{ role.scope }}</div>
+                            </div>
+                            <MTrackBadge :label="`${role.users_count} users`" tone="neutral" />
+                        </div>
+                        <div class="mt-4 grid grid-cols-2 gap-2 text-sm">
+                            <div class="rounded-mtrack-sm bg-muted-surface p-3">
+                                <div class="text-xs font-semibold text-muted">Can edit</div>
+                                <div class="mt-1 text-lg font-bold text-body">{{ roleEditableModuleCount(role) }}</div>
+                            </div>
+                            <div class="rounded-mtrack-sm bg-muted-surface p-3">
+                                <div class="text-xs font-semibold text-muted">Can view</div>
+                                <div class="mt-1 text-lg font-bold text-body">{{ roleVisibleModuleCount(role) }}</div>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex max-h-20 flex-wrap gap-1 overflow-hidden">
+                            <MTrackBadge
+                                v-for="(level, module) in role.permissions.modules ?? {}"
+                                :key="`${role.id}-${module}`"
+                                :label="`${moduleLabel(String(module))}: ${moduleLabel(String(level))}`"
+                                :tone="level === 'edit' ? 'success' : level === 'view' ? 'info' : 'neutral'"
+                            />
+                        </div>
+                    </div>
                 </div>
-                <MTrackState v-else title="No roles yet" message="Create a platform or tenant role to begin assigning access." />
+                <MTrackState v-else title="No roles yet" message="Create a role to begin assigning access." />
             </article>
         </section>
 
-        <section v-else-if="activeModule === 'settings'" class="space-y-6">
+        <section v-else-if="activeModule === 'settings'" class="mtrack-page-section">
             <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                <MTrackMetricCard label="Configured admins" :value="users.filter((user) => user.roles.some((role) => role.scope === 'platform')).length" helper="Registered platform users" :icon="UserPlus" tone="brand" />
-                <MTrackMetricCard label="Customers" :value="customers.length" helper="Organizations visible to platform admins" :icon="Building2" tone="success" />
-                <MTrackMetricCard label="Roles" :value="roles.length" helper="Platform and tenant access profiles" :icon="Layers" tone="info" />
+                <MTrackMetricCard label="Platform admins" :value="platformAdminCount" helper="People who can manage the platform" :icon="UserPlus" tone="brand" />
+                <MTrackMetricCard label="Customers" :value="customers.length" helper="Organizations on mTrack" :icon="Building2" tone="success" />
+                <MTrackMetricCard label="Access profiles" :value="roles.length" helper="Reusable role templates" :icon="Layers" tone="info" />
             </div>
 
             <article class="mtrack-panel overflow-hidden">
-                <div class="border-b border-line px-5 py-4">
-                    <h2 class="text-section-title">Runtime settings</h2>
+                <div class="mtrack-section-header">
+                    <div>
+                        <div class="mtrack-section-kicker">Platform defaults</div>
+                        <h2 class="text-section-title">Operational settings</h2>
+                    </div>
                 </div>
-                <div class="grid gap-px bg-line md:grid-cols-2">
+                <div class="grid gap-px bg-line md:grid-cols-2 xl:grid-cols-3">
                     <div v-for="setting in settings" :key="setting.label" class="bg-surface p-5">
                         <div class="text-xs font-bold uppercase text-muted">{{ setting.label }}</div>
-                        <div class="mt-2 break-words text-sm font-semibold text-body">{{ setting.value }}</div>
+                        <div class="mt-2 break-words text-base font-bold text-body">{{ setting.value }}</div>
                     </div>
                 </div>
             </article>
 
-            <article class="mtrack-panel overflow-hidden">
-                <div class="border-b border-line px-5 py-4">
-                    <h2 class="text-section-title">Access policy</h2>
-                </div>
-                <div class="grid gap-px bg-line md:grid-cols-2">
-                    <div class="bg-surface p-5">
-                        <div class="text-sm font-bold text-body">Platform modules</div>
-                        <div class="mt-3 flex flex-wrap gap-1">
-                            <MTrackBadge v-for="module in adminModules" :key="module" :label="module.replaceAll('_', ' ')" tone="brand" />
+            <div class="grid gap-6 xl:grid-cols-2">
+                <article class="mtrack-panel overflow-hidden">
+                    <div class="mtrack-section-header">
+                        <div>
+                            <div class="mtrack-section-kicker">Platform team</div>
+                            <h2 class="text-section-title">Admin workspace areas</h2>
                         </div>
                     </div>
-                    <div class="bg-surface p-5">
-                        <div class="text-sm font-bold text-body">Customer modules</div>
-                        <div class="mt-3 flex flex-wrap gap-1">
-                            <MTrackBadge v-for="module in customerModules" :key="module" :label="module.replaceAll('_', ' ')" tone="success" />
+                    <div class="p-5">
+                        <div class="flex flex-wrap gap-2">
+                            <MTrackBadge v-for="module in adminModules" :key="module" :label="moduleLabel(module)" tone="brand" />
                         </div>
                     </div>
-                </div>
-            </article>
+                </article>
+
+                <article class="mtrack-panel overflow-hidden">
+                    <div class="mtrack-section-header">
+                        <div>
+                            <div class="mtrack-section-kicker">Customer teams</div>
+                            <h2 class="text-section-title">Customer workspace areas</h2>
+                        </div>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex flex-wrap gap-2">
+                            <MTrackBadge v-for="module in customerModules" :key="module" :label="moduleLabel(module)" tone="success" />
+                        </div>
+                    </div>
+                </article>
+            </div>
         </section>
     </AppShell>
 </template>
-
-<style scoped>
-.osm-map {
-    background-color: #e8eef3;
-    background-image:
-        linear-gradient(90deg, rgba(11, 16, 38, 0.08) 1px, transparent 1px),
-        linear-gradient(rgba(11, 16, 38, 0.08) 1px, transparent 1px),
-        radial-gradient(circle at 20% 35%, rgba(20, 184, 166, 0.18), transparent 24%),
-        radial-gradient(circle at 75% 65%, rgba(103, 232, 249, 0.18), transparent 26%);
-    background-size:
-        64px 64px,
-        64px 64px,
-        auto,
-        auto;
-}
-</style>

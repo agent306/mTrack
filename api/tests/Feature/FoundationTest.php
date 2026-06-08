@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Notifications\MagicLoginLink;
@@ -39,13 +40,28 @@ class FoundationTest extends TestCase
         Notification::assertSentTo($user, MagicLoginLink::class);
     }
 
-    public function test_authenticated_user_can_open_foundation_shell(): void
+    public function test_dashboard_sends_tenant_users_to_customer_workspace(): void
     {
         $tenant = Tenant::factory()->create();
         $user = User::factory()->for($tenant)->create();
 
         $this->actingAs($user)
             ->get('/dashboard')
-            ->assertOk();
+            ->assertRedirect('/customer/dashboard');
+    }
+
+    public function test_dashboard_sends_platform_admins_to_admin_workspace(): void
+    {
+        $role = Role::factory()->create([
+            'tenant_id' => null,
+            'scope' => 'platform',
+            'slug' => 'platform-admin',
+        ]);
+        $user = User::factory()->create(['tenant_id' => null]);
+        $user->roles()->attach($role);
+
+        $this->actingAs($user->load('roles'))
+            ->get('/dashboard')
+            ->assertRedirect('/admin/dashboard');
     }
 }

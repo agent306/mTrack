@@ -99,7 +99,7 @@ class CustomerWebTest extends TestCase
     {
         $tenant = Tenant::factory()->create();
         $user = $this->tenantUser($tenant, ['modules' => ['billing' => 'edit']]);
-        $plan = LicensePlan::factory()->create(['price_amount' => 25, 'currency' => 'USD']);
+        $plan = LicensePlan::factory()->create(['price_amount' => 25, 'currency' => 'MVR']);
 
         $this->actingAs($user)
             ->post('/customer/billing/license-requests', [

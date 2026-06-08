@@ -7,7 +7,6 @@ use App\Http\Controllers\Auth\MagicLinkController;
 use App\Http\Controllers\Customer\CustomerController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 Route::redirect('/', '/dashboard');
 
@@ -28,9 +27,15 @@ Route::get('/auth/magic-link/{user}', [MagicLinkController::class, 'show'])
     ->name('auth.magic-link.show');
 
 Route::middleware(['auth', 'active.user', 'tenant.resolve', 'active.tenant'])->group(function (): void {
-    Route::get('/dashboard', fn () => Inertia::render('Foundation/Overview', [
-        'surface' => Auth::user()?->tenant_id ? 'customer' : 'platform',
-    ]))->name('dashboard');
+    Route::get('/dashboard', function () {
+        $user = Auth::user()?->loadMissing('roles');
+
+        if ($user?->isPlatformAdmin()) {
+            return redirect()->route('admin.show', ['module' => 'dashboard']);
+        }
+
+        return redirect()->route('customer.show', ['module' => 'dashboard']);
+    })->name('dashboard');
 
     Route::redirect('/customer', '/customer/dashboard')->name('customer.index');
     Route::get('/customer/exports/{report}', [CustomerController::class, 'exportCsv'])

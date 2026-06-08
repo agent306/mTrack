@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { Link, router, usePage } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import {
-    Activity,
     BarChart3,
     Bell,
     Building2,
@@ -28,7 +27,6 @@ import { route } from 'ziggy-js';
 const props = withDefaults(
     defineProps<{
     title: string;
-    description?: string;
     surface?: 'admin' | 'customer' | 'foundation';
     allowedModules?: string[];
 }>(),
@@ -68,7 +66,7 @@ const customerNavItems: Array<{ label: string; module?: string; icon: Component;
     { label: 'Geofence', module: 'geofence', icon: Map, href: customerHref('geofence'), active: isActive(customerHref('geofence')) },
     { label: 'Analysis', module: 'analysis', icon: BarChart3, href: customerHref('analysis'), active: isActive(customerHref('analysis')) },
     { label: 'Routes', module: 'routes', icon: Route, href: customerHref('routes'), active: isActive(customerHref('routes')) },
-    { label: 'Setting', module: 'settings', icon: Settings, href: customerHref('setting'), active: isActive(customerHref('setting')) },
+    { label: 'Settings', module: 'settings', icon: Settings, href: customerHref('setting'), active: isActive(customerHref('setting')) },
     { label: 'Billing', module: 'billing', icon: Wallet, href: customerHref('billing'), active: isActive(customerHref('billing')) },
     { label: 'Audit Log', module: 'audit_log', icon: FileText, href: customerHref('audit-log'), active: isActive(customerHref('audit-log')) },
 ];
@@ -99,13 +97,11 @@ const customerMobileNavItems = computed(() => {
         { label: 'Events', module: 'events', icon: Bell, href: customerHref('events'), active: isActive(customerHref('events')) },
         { label: 'Live', module: 'live', icon: MapPinned, href: customerHref('live'), active: isActive(customerHref('live')) },
         { label: 'Playback', module: 'playback', icon: PlayCircle, href: customerHref('playback'), active: isActive(customerHref('playback')) },
-        { label: 'Setting', module: 'settings', icon: Settings, href: customerHref('setting'), active: isActive(customerHref('setting')) },
+        { label: 'Settings', module: 'settings', icon: Settings, href: customerHref('setting'), active: isActive(customerHref('setting')) },
     ].filter((item) => allowed.has(item.module));
 });
 
 const mobileNavItems = computed(() => (props.surface === 'customer' ? customerMobileNavItems.value : adminMobileNavItems));
-const workspaceLabel = computed(() => (props.surface === 'customer' ? 'Customer web' : props.surface === 'admin' ? 'Admin web' : 'Foundation'));
-const workspaceHref = computed(() => route('dashboard', undefined, false));
 
 const logout = () => router.post(route('logout'));
 </script>
@@ -145,21 +141,14 @@ const logout = () => router.post(route('logout'));
                         <h1 class="truncate text-[24px] font-bold leading-8 text-body">{{ title }}</h1>
                     </div>
                     <div class="hidden items-center gap-3 sm:flex">
-                        <div class="rounded-full border border-line bg-muted-surface px-3 py-1 text-xs font-medium text-muted">
-                            {{ workspaceLabel }}
-                        </div>
-                        <Link :href="workspaceHref" class="rounded-mtrack-sm bg-primary-dark px-4 py-2 text-sm font-semibold text-white">
-                            Workspace
-                        </Link>
+                        <button type="button" class="mtrack-button-secondary" @click="logout">
+                            Sign out
+                        </button>
                     </div>
                 </div>
             </header>
 
-            <main class="px-4 pb-24 pt-6 sm:px-6 lg:px-8 lg:pb-6">
-                <div v-if="description" class="mb-5 max-w-3xl text-sm leading-6 text-muted">
-                    {{ description }}
-                </div>
-
+            <main class="mx-auto max-w-[1680px] px-4 pb-24 pt-6 sm:px-6 lg:px-8 lg:pb-8">
                 <slot />
             </main>
         </div>

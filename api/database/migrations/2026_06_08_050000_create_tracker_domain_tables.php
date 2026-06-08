@@ -156,7 +156,7 @@ return new class extends Migration
             $table->json('base_features')->nullable();
             $table->unsignedInteger('included_device_count')->default(0);
             $table->decimal('price_amount', 12, 2)->default(0);
-            $table->string('currency', 3)->default('USD');
+            $table->string('currency', 3)->default('MVR');
             $table->string('status')->default('active')->index();
             $table->json('metadata')->nullable();
             $table->timestamps();
@@ -185,7 +185,7 @@ return new class extends Migration
             $table->string('request_type');
             $table->unsignedInteger('requested_device_count')->default(0);
             $table->decimal('amount', 12, 2)->default(0);
-            $table->string('currency', 3)->default('USD');
+            $table->string('currency', 3)->default('MVR');
             $table->string('status')->default('pending')->index();
             $table->text('rejection_reason')->nullable();
             $table->json('metadata')->nullable();
