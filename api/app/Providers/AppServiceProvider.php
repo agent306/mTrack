@@ -47,6 +47,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (app()->isProduction()) {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+            $this->app['request']->server->set('HTTPS','on');
+        }
+
         Gate::policy(AlertEvent::class, AlertEventPolicy::class);
         Gate::policy(FleetGroup::class, FleetGroupPolicy::class);
         Gate::policy(Geofence::class, GeofencePolicy::class);
