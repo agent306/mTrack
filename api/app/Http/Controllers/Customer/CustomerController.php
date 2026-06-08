@@ -318,7 +318,7 @@ class CustomerController extends Controller
             ['label' => 'Moving hours', 'value' => round($events->where('speed', '>', 1)->count() * 0.1, 1).' h', 'helper' => 'Derived from recent event cadence', 'icon' => 'Clock', 'tone' => 'info'],
             ['label' => 'Average speed', 'value' => round((float) $events->avg('speed'), 1).' km/h', 'helper' => 'Recent normalized speed average', 'icon' => 'Gauge', 'tone' => 'warning'],
             ['label' => 'Open events', 'value' => AlertEvent::query()->whereIn('tracker_device_id', $trackerIds)->whereNull('resolved_at')->count(), 'helper' => 'Geofence, overspeed, and device alerts', 'icon' => 'Bell', 'tone' => 'danger'],
-            ['label' => 'Ingestion health', 'value' => RawPayload::query()->whereIn('tracker_device_id', $trackerIds)->where('processing_status', 'processed')->count(), 'helper' => 'Processed payloads in tenant logs', 'icon' => 'Activity', 'tone' => 'success'],
+            ['label' => 'Ingestion health', 'value' => RawPayload::query()->whereIn('tracker_device_id', $trackerIds)->where('processing_status', 'normalized')->count(), 'helper' => 'Normalized payloads in tenant logs', 'icon' => 'Activity', 'tone' => 'success'],
         ];
     }
 

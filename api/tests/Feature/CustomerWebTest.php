@@ -34,6 +34,7 @@ class CustomerWebTest extends TestCase
             'speed' => 32,
         ]);
         $tracker->forceFill(['last_event_id' => $event->id])->save();
+        RawPayload::factory()->forTracker($tracker)->create(['processing_status' => 'normalized']);
 
         $this->actingAs($user)
             ->get('/customer/dashboard')
@@ -42,7 +43,8 @@ class CustomerWebTest extends TestCase
                 ->component('Customer/Portal', false)
                 ->where('activeModule', 'dashboard')
                 ->has('trackers', 1)
-                ->where('trackers.0.display_name', 'Visible Van'));
+                ->where('trackers.0.display_name', 'Visible Van')
+                ->where('dashboardMetrics.5.value', 1));
     }
 
     public function test_hidden_customer_module_is_forbidden_and_not_in_module_tabs(): void
