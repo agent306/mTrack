@@ -45,8 +45,8 @@ const HTTP_METHOD_PREFIXES = [
 ];
 
 const config: Config = {
-  port: envInt('PORT', 5023),
-  publicUrl: process.env.FEEDSERVICE_PUBLIC_URL ?? 'http://mtrackerfeed.nashath.dev:5023',
+  port: 80,
+  publicUrl: process.env.FEEDSERVICE_PUBLIC_URL ?? 'https://mtrackerfeed.nashath.dev',
   ingestUrl: process.env.MTRACK_INGEST_URL ?? 'https://mtrack.nashath.dev/api/ingest',
   maxPayloadBytes: envInt('FEEDSERVICE_MAX_PAYLOAD_BYTES', 1048576),
   forwardTimeoutMs: envInt('FEEDSERVICE_FORWARD_TIMEOUT_MS', 15000),
