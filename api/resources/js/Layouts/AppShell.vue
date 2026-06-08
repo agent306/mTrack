@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Link, router, usePage } from '@inertiajs/vue3';
 import {
-    Activity,
     Bell,
     Building2,
     CreditCard,
@@ -17,6 +16,8 @@ import {
     Users,
 } from '@lucide/vue';
 import type { Component } from 'vue';
+import MTrackBottomNav from '../Components/MTrackBottomNav.vue';
+import MTrackSideNav from '../Components/MTrackSideNav.vue';
 import type { PageProps } from '../types';
 
 defineProps<{
@@ -41,6 +42,14 @@ const navItems: Array<{ label: string; icon: Component; active?: boolean }> = [
     { label: 'Settings', icon: Settings },
 ];
 
+const mobileNavItems: Array<{ label: string; icon: Component; active?: boolean }> = [
+    { label: 'Dashboard', icon: Gauge, active: true },
+    { label: 'Reports', icon: FileText },
+    { label: 'Live', icon: MapPinned },
+    { label: 'Playback', icon: PlayCircle },
+    { label: 'Setting', icon: Settings },
+];
+
 const logout = () => router.post('/logout');
 </script>
 
@@ -55,20 +64,7 @@ const logout = () => router.post('/logout');
                 </div>
             </div>
 
-            <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-                <button
-                    v-for="item in navItems"
-                    :key="item.label"
-                    type="button"
-                    :class="[
-                        'flex h-10 w-full items-center gap-3 rounded-mtrack-sm px-3 text-left text-sm font-medium transition',
-                        item.active ? 'bg-brand text-primary-dark' : 'text-white/72 hover:bg-white/8 hover:text-white',
-                    ]"
-                >
-                    <component :is="item.icon" class="size-4 shrink-0" :stroke-width="2" />
-                    <span class="truncate">{{ item.label }}</span>
-                </button>
-            </nav>
+            <MTrackSideNav :items="navItems" />
 
             <div class="border-t border-white/10 p-4">
                 <div class="rounded-mtrack-md bg-white/8 p-3">
@@ -102,7 +98,7 @@ const logout = () => router.post('/logout');
                 </div>
             </header>
 
-            <main class="px-4 py-6 sm:px-6 lg:px-8">
+            <main class="px-4 pb-24 pt-6 sm:px-6 lg:px-8 lg:pb-6">
                 <div v-if="description" class="mb-5 max-w-3xl text-sm leading-6 text-muted">
                     {{ description }}
                 </div>
@@ -110,5 +106,7 @@ const logout = () => router.post('/logout');
                 <slot />
             </main>
         </div>
+
+        <MTrackBottomNav :items="mobileNavItems" />
     </div>
 </template>

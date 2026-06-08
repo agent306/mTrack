@@ -1,21 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'theme/mtrack_theme.dart';
+
 void main() {
   runApp(const MTrackApp());
-}
-
-class MTrackTokens {
-  static const brand = Color(0xFF14B8A6);
-  static const brandHover = Color(0xFF0F9F8F);
-  static const primaryDark = Color(0xFF0B1026);
-  static const page = Color(0xFFF4F6FA);
-  static const surface = Color(0xFFFFFFFF);
-  static const mutedSurface = Color(0xFFEEF2F7);
-  static const border = Color(0xFFD8DEE8);
-  static const text = Color(0xFF111827);
-  static const muted = Color(0xFF6B7280);
-  static const success = Color(0xFF22C55E);
-  static const warning = Color(0xFFF97316);
 }
 
 class MTrackApp extends StatelessWidget {
@@ -26,42 +14,7 @@ class MTrackApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'mTrack',
-      theme: ThemeData(
-        useMaterial3: true,
-        scaffoldBackgroundColor: MTrackTokens.page,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: MTrackTokens.brand,
-          brightness: Brightness.light,
-          surface: MTrackTokens.surface,
-        ),
-        fontFamily: 'Roboto',
-        textTheme: const TextTheme(
-          headlineSmall: TextStyle(
-            color: MTrackTokens.text,
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            height: 32 / 24,
-          ),
-          titleMedium: TextStyle(
-            color: MTrackTokens.text,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            height: 28 / 18,
-          ),
-          bodyMedium: TextStyle(
-            color: MTrackTokens.text,
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            height: 22 / 14,
-          ),
-          labelSmall: TextStyle(
-            color: MTrackTokens.muted,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            height: 18 / 12,
-          ),
-        ),
-      ),
+      theme: MTrackTheme.light(),
       home: const MobileShell(),
     );
   }
@@ -94,7 +47,7 @@ class _MobileShellState extends State<MobileShell> {
         backgroundColor: MTrackTokens.surface,
         elevation: 0,
         surfaceTintColor: MTrackTokens.surface,
-        titleSpacing: 16,
+        titleSpacing: MTrackTokens.space16,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -123,7 +76,7 @@ class _MobileShellState extends State<MobileShell> {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(MTrackTokens.space16),
           child: FoundationPanel(destination: selected),
         ),
       ),
@@ -160,10 +113,10 @@ class FoundationPanel extends StatelessWidget {
     return ListView(
       children: [
         Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(MTrackTokens.space24),
           decoration: BoxDecoration(
             color: MTrackTokens.primaryDark,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(MTrackTokens.radiusLarge),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,7 +132,7 @@ class FoundationPanel extends StatelessWidget {
                   height: 32 / 24,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: MTrackTokens.space8),
               const Text(
                 'Mobile navigation, theme tokens, and placeholder states are ready for feature phases.',
                 style: TextStyle(
@@ -191,7 +144,7 @@ class FoundationPanel extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: MTrackTokens.space16),
         const _StatusTile(
           label: 'Authentication',
           value: 'Mobile token scaffold',
@@ -232,12 +185,8 @@ class _StatusTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: MTrackTokens.surface,
-        border: Border.all(color: MTrackTokens.border),
-        borderRadius: BorderRadius.circular(10),
-      ),
+      padding: const EdgeInsets.all(MTrackTokens.space16),
+      decoration: MTrackTheme.panelDecoration(),
       child: Row(
         children: [
           Container(
@@ -245,11 +194,11 @@ class _StatusTile extends StatelessWidget {
             height: 40,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(MTrackTokens.radiusMedium),
             ),
             child: Icon(icon, color: color, size: 22),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: MTrackTokens.space12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

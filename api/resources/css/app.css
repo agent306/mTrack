@@ -8,6 +8,7 @@
 @theme {
     --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+
     --color-brand: #14b8a6;
     --color-brand-hover: #0f9f8f;
     --color-primary-dark: #0b1026;
@@ -21,11 +22,41 @@
     --color-warning: #f97316;
     --color-danger: #ef4444;
     --color-info: #67e8f9;
+    --color-neutral: #6b7280;
+
+    --text-display: 32px;
+    --text-display--line-height: 40px;
+    --text-display--font-weight: 700;
+    --text-page-title: 24px;
+    --text-page-title--line-height: 32px;
+    --text-page-title--font-weight: 700;
+    --text-section-title: 18px;
+    --text-section-title--line-height: 28px;
+    --text-section-title--font-weight: 700;
+    --text-mtrack-body: 14px;
+    --text-mtrack-body--line-height: 22px;
+    --text-mtrack-small: 12px;
+    --text-mtrack-small--line-height: 18px;
+    --text-metric: 28px;
+    --text-metric--line-height: 34px;
+    --text-metric--font-weight: 700;
+
+    --spacing-mtrack-1: 4px;
+    --spacing-mtrack-2: 8px;
+    --spacing-mtrack-3: 12px;
+    --spacing-mtrack-4: 16px;
+    --spacing-mtrack-6: 24px;
+    --spacing-mtrack-8: 32px;
+    --spacing-mtrack-12: 48px;
+
     --radius-mtrack-sm: 6px;
     --radius-mtrack-md: 10px;
     --radius-mtrack-lg: 16px;
+    --radius-mtrack-sheet: 24px;
+
     --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.08);
     --shadow-overlay: 0 12px 32px rgba(15, 23, 42, 0.18);
+    --shadow-map-panel: 0 8px 24px rgba(15, 23, 42, 0.16);
 }
 
 @layer base {
@@ -37,5 +68,66 @@
 
     body {
         min-height: 100vh;
+        font-size: 14px;
+        line-height: 22px;
+    }
+
+    :focus-visible {
+        outline: 2px solid #14b8a6;
+        outline-offset: 2px;
+    }
+}
+
+@layer components {
+    .mtrack-panel {
+        @apply rounded-mtrack-md border border-line bg-surface shadow-card;
+    }
+
+    .mtrack-map-panel {
+        @apply rounded-mtrack-md border border-line bg-surface shadow-map-panel;
+    }
+
+    .mtrack-button-primary {
+        @apply inline-flex h-10 items-center justify-center gap-2 rounded-mtrack-sm bg-primary-dark px-4 text-sm font-semibold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60;
+    }
+
+    .mtrack-button-secondary {
+        @apply inline-flex h-10 items-center justify-center gap-2 rounded-mtrack-sm border border-line bg-surface px-4 text-sm font-semibold text-body transition hover:bg-muted-surface disabled:cursor-not-allowed disabled:opacity-60;
+    }
+
+    .mtrack-icon-button {
+        @apply inline-grid size-10 place-items-center rounded-mtrack-sm border border-line bg-surface text-muted transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-60;
+    }
+
+    .mtrack-input {
+        @apply h-10 w-full rounded-mtrack-sm border border-line bg-surface px-3 text-sm text-body transition placeholder:text-muted focus:border-brand focus:outline-none;
+    }
+
+    .mtrack-select {
+        @apply h-10 w-full rounded-mtrack-sm border border-line bg-surface px-3 text-sm text-body transition focus:border-brand focus:outline-none;
+    }
+
+    .mtrack-label {
+        @apply text-xs font-semibold text-muted;
+    }
+
+    .mtrack-table {
+        @apply w-full border-separate border-spacing-0 text-left text-sm;
+    }
+
+    .mtrack-table th {
+        @apply border-b border-line bg-muted-surface px-4 py-3 text-xs font-semibold uppercase text-muted;
+    }
+
+    .mtrack-table td {
+        @apply border-b border-line px-4 py-3 text-body;
+    }
+
+    .mtrack-state {
+        @apply flex min-h-48 flex-col items-center justify-center rounded-mtrack-md border border-dashed border-line bg-muted-surface p-8 text-center;
+    }
+
+    .mtrack-badge {
+        @apply inline-flex h-6 items-center rounded-full px-2.5 text-xs font-semibold;
     }
 }

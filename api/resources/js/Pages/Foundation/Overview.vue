@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
 import { Activity, Bell, Database, RadioTower, ShieldCheck, Wifi } from '@lucide/vue';
+import MTrackMetricCard from '../../Components/MTrackMetricCard.vue';
+import MTrackState from '../../Components/MTrackState.vue';
 import AppShell from '../../Layouts/AppShell.vue';
 
 defineProps<{
@@ -8,11 +10,11 @@ defineProps<{
 }>();
 
 const foundations = [
-    { label: 'Tenancy', value: 'Ready', helper: 'Tenant, user, roles, and audit primitives', icon: ShieldCheck, tone: 'text-success' },
-    { label: 'Queues', value: 'Redis', helper: 'Horizon installed for workers and monitoring', icon: Activity, tone: 'text-brand' },
-    { label: 'Realtime', value: 'Reverb', helper: 'Broadcasting config prepared for live tracking', icon: Wifi, tone: 'text-info' },
-    { label: 'Auth', value: 'Passwordless', helper: 'Magic links, Google, Sanctum mobile token base', icon: RadioTower, tone: 'text-warning' },
-];
+    { label: 'Tenancy', value: 'Ready', helper: 'Tenant, user, roles, and audit primitives', icon: ShieldCheck, tone: 'success' },
+    { label: 'Queues', value: 'Redis', helper: 'Horizon installed for workers and monitoring', icon: Activity, tone: 'brand' },
+    { label: 'Realtime', value: 'Reverb', helper: 'Broadcasting config prepared for live tracking', icon: Wifi, tone: 'info' },
+    { label: 'Auth', value: 'Passwordless', helper: 'Magic links, Google, Sanctum mobile token base', icon: RadioTower, tone: 'warning' },
+] as const;
 
 const upcoming = [
     'Tracker/device registry',
@@ -31,12 +33,15 @@ const upcoming = [
         description="The mTrack base application is wired for tenant-aware operations, passwordless access, queues, and realtime delivery. Feature pages start in later phases."
     >
         <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <article v-for="item in foundations" :key="item.label" class="rounded-mtrack-md border border-line bg-surface p-5 shadow-card">
-                <component :is="item.icon" :class="['size-5', item.tone]" />
-                <div class="mt-5 text-sm font-semibold text-muted">{{ item.label }}</div>
-                <div class="mt-1 text-[28px] font-bold leading-[34px] tabular-nums text-body">{{ item.value }}</div>
-                <div class="mt-2 text-sm leading-6 text-muted">{{ item.helper }}</div>
-            </article>
+            <MTrackMetricCard
+                v-for="item in foundations"
+                :key="item.label"
+                :label="item.label"
+                :value="item.value"
+                :helper="item.helper"
+                :icon="item.icon"
+                :tone="item.tone"
+            />
         </section>
 
         <section class="mt-6 grid gap-6 xl:grid-cols-[1fr_360px]">
@@ -79,6 +84,12 @@ const upcoming = [
                     </div>
                 </div>
             </aside>
+        </section>
+
+        <section class="mt-6 grid gap-4 lg:grid-cols-3">
+            <MTrackState title="Empty state" message="Use this pattern when a fleet, report, or diagnostics table has no records yet." />
+            <MTrackState kind="loading" title="Loading state" message="Use compact loading states for maps, tables, and analytics panels." />
+            <MTrackState kind="error" title="Error state" message="Pair errors with concrete text and a retry action when the workflow supports it." />
         </section>
     </AppShell>
 </template>
