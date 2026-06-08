@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["php84", "php84Packages.composer", "php84Extensions.exif", "nodejs_22", "nginx", "curl"]
+nixPkgs = ["php84", "php84Packages.composer", "php84Extensions.exif", "php84Extensions.pcntl", "php84Extensions.pdo_pgsql", "nodejs_22", "nginx", "curl"]
 
 cmds = [
     "mkdir -p /var/log/nginx && chown -R www-data:www-data /var/log/nginx",

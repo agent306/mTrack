@@ -11,5 +11,7 @@ Place all Laravel/PHP backend and Inertia/Vue web code inside `api/`. Place all 
 
 Use Stitch MCP for all design decisions, screen generation, design-system work, and visual validation. Use the `frontend-design` skill for every frontend/UI implementation task. Do not invent product scope beyond the docs.
 
+Before creating a Stitch project, use Stitch MCP to check for any existing Stitch projects for mTrack. If any exist, use an existing mTrack project instead of creating a new one.
+
 Verify each phase with tests/build/manual QA appropriate to the work. Do not commit unless explicitly requested.
 ```
