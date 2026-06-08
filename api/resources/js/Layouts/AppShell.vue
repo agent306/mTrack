@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Link, router, usePage } from '@inertiajs/vue3';
 import {
+    Activity,
+    BarChart3,
     Bell,
     Building2,
     CreditCard,
@@ -14,22 +16,32 @@ import {
     Settings,
     ShieldCheck,
     Users,
+    Wallet,
 } from '@lucide/vue';
 import type { Component } from 'vue';
+import { computed } from 'vue';
 import MTrackBottomNav from '../Components/MTrackBottomNav.vue';
 import MTrackSideNav from '../Components/MTrackSideNav.vue';
 import type { PageProps } from '../types';
 
-defineProps<{
+const props = withDefaults(
+    defineProps<{
     title: string;
     description?: string;
-}>();
+    surface?: 'admin' | 'customer' | 'foundation';
+    allowedModules?: string[];
+}>(),
+    {
+        surface: 'foundation',
+        allowedModules: () => [],
+    },
+);
 
 const page = usePage<PageProps>();
 
 const isActive = (href: string) => page.url === href || page.url.startsWith(`${href}/`);
 
-const navItems: Array<{ label: string; icon: Component; href?: string; active?: boolean; disabled?: boolean }> = [
+const adminNavItems: Array<{ label: string; module?: string; icon: Component; href?: string; active?: boolean; disabled?: boolean }> = [
     { label: 'Dashboard', icon: Gauge, href: '/admin/dashboard', active: isActive('/admin/dashboard') || page.url === '/dashboard' },
     { label: 'Live', icon: MapPinned, href: '/admin/live', active: isActive('/admin/live') },
     { label: 'Playback', icon: PlayCircle, href: '/admin/playback', active: isActive('/admin/playback') },
@@ -44,13 +56,53 @@ const navItems: Array<{ label: string; icon: Component; href?: string; active?: 
     { label: 'Settings', icon: Settings, disabled: true },
 ];
 
-const mobileNavItems: Array<{ label: string; icon: Component; href?: string; active?: boolean; disabled?: boolean }> = [
+const customerNavItems: Array<{ label: string; module?: string; icon: Component; href?: string; active?: boolean; disabled?: boolean }> = [
+    { label: 'Dashboard', module: 'dashboard', icon: Gauge, href: '/customer/dashboard', active: isActive('/customer/dashboard') || page.url === '/dashboard' },
+    { label: 'Live', module: 'live', icon: MapPinned, href: '/customer/live', active: isActive('/customer/live') },
+    { label: 'Playback', module: 'playback', icon: PlayCircle, href: '/customer/playback', active: isActive('/customer/playback') },
+    { label: 'Events', module: 'events', icon: Bell, href: '/customer/events', active: isActive('/customer/events') },
+    { label: 'My Fleets', module: 'my_fleets', icon: RadioTower, href: '/customer/my-fleets', active: isActive('/customer/my-fleets') },
+    { label: 'Geofence', module: 'geofence', icon: Map, href: '/customer/geofence', active: isActive('/customer/geofence') },
+    { label: 'Analysis', module: 'analysis', icon: BarChart3, href: '/customer/analysis', active: isActive('/customer/analysis') },
+    { label: 'Routes', module: 'routes', icon: Route, href: '/customer/routes', active: isActive('/customer/routes') },
+    { label: 'Setting', module: 'settings', icon: Settings, href: '/customer/setting', active: isActive('/customer/setting') },
+    { label: 'Billing', module: 'billing', icon: Wallet, href: '/customer/billing', active: isActive('/customer/billing') },
+    { label: 'Audit Log', module: 'audit_log', icon: FileText, href: '/customer/audit-log', active: isActive('/customer/audit-log') },
+];
+
+const navItems = computed(() => {
+    if (props.surface === 'customer') {
+        const allowed = new Set(props.allowedModules);
+
+        return customerNavItems.filter((item) => !item.module || allowed.has(item.module));
+    }
+
+    return adminNavItems;
+});
+
+const adminMobileNavItems: Array<{ label: string; module?: string; icon: Component; href?: string; active?: boolean; disabled?: boolean }> = [
     { label: 'Dashboard', icon: Gauge, href: '/admin/dashboard', active: isActive('/admin/dashboard') || page.url === '/dashboard' },
     { label: 'Logs', icon: FileText, href: '/admin/logs', active: isActive('/admin/logs') },
     { label: 'Live', icon: MapPinned, href: '/admin/live', active: isActive('/admin/live') },
     { label: 'Playback', icon: PlayCircle, href: '/admin/playback', active: isActive('/admin/playback') },
     { label: 'Payments', icon: CreditCard, href: '/admin/payments', active: isActive('/admin/payments') },
 ];
+
+const customerMobileNavItems = computed(() => {
+    const allowed = new Set(props.allowedModules);
+
+    return [
+        { label: 'Dashboard', module: 'dashboard', icon: Gauge, href: '/customer/dashboard', active: isActive('/customer/dashboard') || page.url === '/dashboard' },
+        { label: 'Events', module: 'events', icon: Bell, href: '/customer/events', active: isActive('/customer/events') },
+        { label: 'Live', module: 'live', icon: MapPinned, href: '/customer/live', active: isActive('/customer/live') },
+        { label: 'Playback', module: 'playback', icon: PlayCircle, href: '/customer/playback', active: isActive('/customer/playback') },
+        { label: 'Setting', module: 'settings', icon: Settings, href: '/customer/setting', active: isActive('/customer/setting') },
+    ].filter((item) => allowed.has(item.module));
+});
+
+const mobileNavItems = computed(() => (props.surface === 'customer' ? customerMobileNavItems.value : adminMobileNavItems));
+const workspaceLabel = computed(() => (props.surface === 'customer' ? 'Customer web' : props.surface === 'admin' ? 'Admin web' : 'Foundation'));
+const workspaceHref = computed(() => (props.surface === 'customer' ? '/customer/dashboard' : '/admin/dashboard'));
 
 const logout = () => router.post('/logout');
 </script>
@@ -91,9 +143,9 @@ const logout = () => router.post('/logout');
                     </div>
                     <div class="hidden items-center gap-3 sm:flex">
                         <div class="rounded-full border border-line bg-muted-surface px-3 py-1 text-xs font-medium text-muted">
-                            Admin web
+                            {{ workspaceLabel }}
                         </div>
-                        <Link href="/admin/dashboard" class="rounded-mtrack-sm bg-primary-dark px-4 py-2 text-sm font-semibold text-white">
+                        <Link :href="workspaceHref" class="rounded-mtrack-sm bg-primary-dark px-4 py-2 text-sm font-semibold text-white">
                             Workspace
                         </Link>
                     </div>

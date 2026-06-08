@@ -29,6 +29,7 @@ const upcoming = [
     <Head title="Foundation" />
 
     <AppShell
+        surface="foundation"
         title="Foundation"
         description="The mTrack base application is wired for tenant-aware operations, passwordless access, queues, and realtime delivery. Feature pages start in later phases."
     >

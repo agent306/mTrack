@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\MagicLinkController;
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Customer\CustomerController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -30,6 +31,28 @@ Route::middleware(['auth', 'active.user', 'tenant.resolve', 'active.tenant'])->g
     Route::get('/dashboard', fn () => Inertia::render('Foundation/Overview', [
         'surface' => Auth::user()?->tenant_id ? 'customer' : 'platform',
     ]))->name('dashboard');
+
+    Route::redirect('/customer', '/customer/dashboard')->name('customer.index');
+    Route::get('/customer/exports/{report}', [CustomerController::class, 'exportCsv'])
+        ->name('customer.exports.show');
+    Route::post('/customer/fleet-groups', [CustomerController::class, 'storeFleetGroup'])
+        ->name('customer.fleet-groups.store');
+    Route::put('/customer/trackers/{trackerDevice}', [CustomerController::class, 'updateTracker'])
+        ->name('customer.trackers.update');
+    Route::post('/customer/geofence', [CustomerController::class, 'storeGeofence'])
+        ->name('customer.geofence.store');
+    Route::put('/customer/geofence/{geofence}', [CustomerController::class, 'updateGeofence'])
+        ->name('customer.geofence.update');
+    Route::post('/customer/billing/license-requests', [CustomerController::class, 'storeLicenseRequest'])
+        ->name('customer.billing.license-requests.store');
+    Route::post('/customer/billing/payment-slips', [CustomerController::class, 'uploadPaymentSlip'])
+        ->name('customer.billing.payment-slips.store');
+    Route::post('/customer/settings', [CustomerController::class, 'storeSetting'])
+        ->name('customer.settings.store');
+    Route::post('/customer/settings/api-token', [CustomerController::class, 'regenerateApiToken'])
+        ->name('customer.settings.api-token');
+    Route::get('/customer/{module}', [CustomerController::class, 'show'])
+        ->name('customer.show');
 
     Route::redirect('/admin', '/admin/dashboard')->name('admin.index');
     Route::get('/admin/{module}', [AdminController::class, 'show'])->name('admin.show');

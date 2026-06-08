@@ -397,7 +397,7 @@ const updateGeofence = (geofence: GeofenceRow) => {
 <template>
     <Head title="Admin web" />
 
-    <AppShell title="Admin web" description="Platform administrator modules for live tracking, billing, customers, devices, geofences, events, playback, and raw logs.">
+    <AppShell surface="admin" title="Admin web" description="Platform administrator modules for live tracking, billing, customers, devices, geofences, events, playback, and raw logs.">
         <div v-if="page.props.flash.status" class="mb-4 rounded-mtrack-md border border-brand/30 bg-brand/10 px-4 py-3 text-sm font-semibold text-brand-hover">
             {{ page.props.flash.status }}
         </div>
