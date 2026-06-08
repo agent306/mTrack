@@ -85,9 +85,10 @@ class MTrackTheme {
         indicatorColor: MTrackTokens.brand.withValues(alpha: 0.16),
         labelTextStyle: WidgetStateProperty.resolveWith(
           (states) => TextStyle(
-            color: states.contains(WidgetState.selected)
-                ? MTrackTokens.brandHover
-                : MTrackTokens.muted,
+            color:
+                states.contains(WidgetState.selected)
+                    ? MTrackTokens.brandHover
+                    : MTrackTokens.muted,
             fontSize: 12,
             fontWeight: FontWeight.w600,
           ),
@@ -96,7 +97,10 @@ class MTrackTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: MTrackTokens.surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(MTrackTokens.radiusSmall),
           borderSide: const BorderSide(color: MTrackTokens.border),
@@ -134,7 +138,12 @@ class MTrackTheme {
     return switch (status) {
       'online' || 'active' || 'moving' || 'entrance' => MTrackTokens.success,
       'idle' || 'overspeed' || 'warning' => MTrackTokens.warning,
-      'offline' || 'expired' || 'rejected' || 'exit' => MTrackTokens.danger,
+      'offline' ||
+      'expired' ||
+      'rejected' ||
+      'exit' ||
+      'open' => MTrackTokens.danger,
+      'resolved' => MTrackTokens.success,
       _ => MTrackTokens.neutral,
     };
   }
