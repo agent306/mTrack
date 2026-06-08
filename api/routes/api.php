@@ -14,7 +14,7 @@ Route::post('/auth/mobile/refresh', [MobileTokenController::class, 'refresh'])
     ->name('api.auth.mobile.refresh');
 
 Route::post('/ingest/{contractKey}', [IngestionController::class, 'store'])
-    ->middleware('throttle:120,1')
+    ->middleware('throttle:'.config('mtrack.ingestion.rate_limit_attempts').','.config('mtrack.ingestion.rate_limit_decay_minutes'))
     ->name('api.ingest.store');
 
 Route::middleware(['auth:sanctum', 'active.user', 'tenant.resolve', 'active.tenant'])->group(function (): void {

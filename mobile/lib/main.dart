@@ -3,23 +3,32 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'config/mtrack_mobile_config.dart';
 import 'data/mtrack_mobile_repository.dart';
 import 'theme/mtrack_theme.dart';
 
 void main() {
-  runApp(const MTrackApp());
+  final config = MTrackMobileConfig.fromEnvironment();
+
+  runApp(MTrackApp(config: config));
 }
 
 class MTrackApp extends StatelessWidget {
-  const MTrackApp({super.key});
+  const MTrackApp({super.key, this.config});
+
+  final MTrackMobileConfig? config;
 
   @override
   Widget build(BuildContext context) {
+    final resolvedConfig = config ?? MTrackMobileConfig.fromEnvironment();
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'mTrack',
+      title: resolvedConfig.appTitle,
       theme: MTrackTheme.light(),
-      home: MobileShell(repository: MTrackMobileRepository()),
+      home: MobileShell(
+        repository: MTrackMobileRepository(config: resolvedConfig),
+      ),
     );
   }
 }
@@ -97,9 +106,9 @@ class _MobileShellState extends State<MobileShell> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Customer Demo',
-              style: TextStyle(fontSize: 12, color: MTrackTokens.muted),
+            Text(
+              widget.repository.config.appContextLabel,
+              style: const TextStyle(fontSize: 12, color: MTrackTokens.muted),
             ),
             Text(
               selected.label,
@@ -172,13 +181,7 @@ class _MobileShellState extends State<MobileShell> {
         reports: widget.repository.reports(),
         onRefreshSession: () {
           setState(() {
-            _session = MobileAuthSession(
-              accessToken: 'demo-access-token-refreshed',
-              refreshToken: _session.refreshToken,
-              tokenType: _session.tokenType,
-              issuedAt: DateTime.now(),
-              expiresInSeconds: 3600,
-            );
+            _session = widget.repository.refreshedDemoSession(_session);
           });
         },
       ),

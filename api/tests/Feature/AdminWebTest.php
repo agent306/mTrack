@@ -48,7 +48,10 @@ class AdminWebTest extends TestCase
     {
         $admin = $this->platformAdmin();
         $tenant = Tenant::factory()->create();
-        $licenseRequest = LicenseRequest::factory()->for($tenant)->create(['status' => 'pending']);
+        $licenseRequest = LicenseRequest::factory()->for($tenant)->create([
+            'request_type' => 'add',
+            'status' => 'pending',
+        ]);
         $slip = PaymentSlip::factory()->forRequest($licenseRequest)->create(['status' => 'pending']);
 
         $this->actingAs($admin)

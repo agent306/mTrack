@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../config/mtrack_mobile_config.dart';
+
 class MobileAuthSession {
   const MobileAuthSession({
     required this.accessToken,
@@ -29,20 +31,24 @@ class MobileAuthSession {
 }
 
 class MobileAuthClient {
-  const MobileAuthClient({required this.baseUrl});
+  const MobileAuthClient({required this.baseUrl, required this.deviceName});
 
   final Uri baseUrl;
+  final String deviceName;
 
   Future<MobileAuthSession> refresh({
     required String refreshToken,
-    String deviceName = 'mTrack mobile',
+    String? deviceName,
   }) async {
     final request = await HttpClient().postUrl(
       baseUrl.resolve('/api/auth/mobile/refresh'),
     );
     request.headers.contentType = ContentType.json;
     request.write(
-      jsonEncode({'refresh_token': refreshToken, 'device_name': deviceName}),
+      jsonEncode({
+        'refresh_token': refreshToken,
+        'device_name': deviceName ?? this.deviceName,
+      }),
     );
 
     final response = await request.close();
@@ -96,22 +102,37 @@ class RealtimeTrackerClient {
 }
 
 class MTrackMobileRepository {
-  MTrackMobileRepository()
-    : authClient = MobileAuthClient(baseUrl: Uri.parse('http://10.0.2.2:8000')),
-      realtimeClient = RealtimeTrackerClient(
-        websocketUrl: Uri.parse('ws://10.0.2.2:8080/app/local'),
-      );
+  MTrackMobileRepository({MTrackMobileConfig? config})
+    : this._(config ?? MTrackMobileConfig.fromEnvironment());
 
+  MTrackMobileRepository._(this.config)
+    : authClient = MobileAuthClient(
+        baseUrl: config.apiBaseUrl,
+        deviceName: config.mobileDeviceName,
+      ),
+      realtimeClient = RealtimeTrackerClient(websocketUrl: config.websocketUrl);
+
+  final MTrackMobileConfig config;
   final MobileAuthClient authClient;
   final RealtimeTrackerClient realtimeClient;
 
-  final MobileAuthSession demoSession = MobileAuthSession(
-    accessToken: 'demo-access-token',
-    refreshToken: 'demo-refresh-token',
-    tokenType: 'Bearer',
-    issuedAt: DateTime(2026, 6, 8, 8),
-    expiresInSeconds: 3600,
+  MobileAuthSession get demoSession => MobileAuthSession(
+    accessToken: config.demoAccessToken,
+    refreshToken: config.demoRefreshToken,
+    tokenType: config.demoTokenType,
+    issuedAt: config.demoSessionIssuedAt,
+    expiresInSeconds: config.demoSessionExpiresInSeconds,
   );
+
+  MobileAuthSession refreshedDemoSession(MobileAuthSession session) {
+    return MobileAuthSession(
+      accessToken: config.demoRefreshedAccessToken,
+      refreshToken: session.refreshToken,
+      tokenType: session.tokenType,
+      issuedAt: DateTime.now(),
+      expiresInSeconds: config.demoSessionExpiresInSeconds,
+    );
+  }
 
   List<TrackerDevice> trackers() => _trackers;
 
@@ -124,9 +145,13 @@ class MTrackMobileRepository {
   TripAnalytics analytics() => TripAnalytics.fromRoute(_routePoints);
 
   Stream<TrackerLocation> simulatedRealtime() async* {
+    if (!config.simulatedRealtimeEnabled) {
+      return;
+    }
+
     var tick = 0;
 
-    while (tick < 8) {
+    while (tick < config.simulatedRealtimeTicks) {
       final base = _routePoints[tick % _routePoints.length];
 
       yield TrackerLocation(
@@ -139,7 +164,9 @@ class MTrackMobileRepository {
       );
 
       tick += 1;
-      await Future<void>.delayed(const Duration(seconds: 2));
+      await Future<void>.delayed(
+        Duration(seconds: config.simulatedRealtimeIntervalSeconds),
+      );
     }
   }
 }
@@ -455,7 +482,7 @@ final _routePoints = List<RoutePoint>.generate(8, (index) {
     trackerName: 'Van 12',
     latitude: 24.84 + (index * 0.004),
     longitude: 67.0 + (index * 0.003),
-    speed: index % 3 == 0 ? 0 : 28 + index,
+    speed: index % 3 == 0 ? 0.0 : (28 + index).toDouble(),
     timestamp: DateTime(2026, 6, 8, 10, 48).add(Duration(minutes: index * 6)),
   );
 });

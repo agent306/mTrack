@@ -15,6 +15,8 @@ return [
 
     'ingestion' => [
         'max_payload_bytes' => env('MTRACK_INGESTION_MAX_PAYLOAD_BYTES', 65536),
+        'rate_limit_attempts' => env('MTRACK_INGESTION_RATE_LIMIT_ATTEMPTS', 120),
+        'rate_limit_decay_minutes' => env('MTRACK_INGESTION_RATE_LIMIT_DECAY_MINUTES', 1),
         'diagnostic_headers' => [
             'content-type',
             'user-agent',
@@ -30,6 +32,15 @@ return [
     'realtime' => [
         'stale_after_minutes' => env('MTRACK_STALE_AFTER_MINUTES', 30),
         'offline_after_minutes' => env('MTRACK_OFFLINE_AFTER_MINUTES', 120),
+    ],
+
+    'operations' => [
+        'unresolved_raw_payload_retention_days' => env('MTRACK_UNRESOLVED_RAW_PAYLOAD_RETENTION_DAYS', 90),
+        'backup_path' => env('MTRACK_BACKUP_PATH', 'app/backups'),
+        'backup_storage_paths' => [
+            'app/private',
+            'app/public',
+        ],
     ],
 
     'modules' => [
