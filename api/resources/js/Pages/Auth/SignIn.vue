@@ -2,6 +2,7 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { Mail, MapPinned, RadioTower, ShieldCheck } from '@lucide/vue';
 import type { PageProps } from '../../types';
+import { route } from 'ziggy-js';
 
 const page = usePage<PageProps>();
 const form = useForm({
@@ -9,7 +10,7 @@ const form = useForm({
 });
 
 const submit = () => {
-    form.post('/auth/magic-link', {
+    form.post(route('auth.magic-link.store'), {
         preserveScroll: true,
         onSuccess: () => form.reset(),
     });
@@ -103,7 +104,7 @@ const submit = () => {
 
                 <div class="mt-5">
                     <Link
-                        href="/auth/google/redirect"
+                        :href="route('auth.google.redirect')"
                         class="flex h-11 items-center justify-center rounded-mtrack-md border border-line bg-muted-surface px-4 text-sm font-semibold text-body transition hover:bg-white"
                     >
                         Continue with Google

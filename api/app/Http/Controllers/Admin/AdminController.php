@@ -12,8 +12,10 @@ use App\Models\LicenseAllocation;
 use App\Models\NormalizedLocationEvent;
 use App\Models\PaymentSlip;
 use App\Models\RawPayload;
+use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\TrackerDevice;
+use App\Models\User;
 use App\Reports\ReportExportService;
 use App\Support\Audit\AuditLogger;
 use Illuminate\Database\Eloquent\Model;
@@ -22,6 +24,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Response as ResponseFactory;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -39,6 +43,8 @@ class AdminController extends Controller
         'customers',
         'payments',
         'logs',
+        'users-roles',
+        'settings',
     ];
 
     public function show(Request $request, string $module = 'dashboard'): Response
@@ -274,6 +280,64 @@ class AdminController extends Controller
         return back()->with('status', 'Geofence updated.');
     }
 
+    public function storeRole(Request $request): RedirectResponse
+    {
+        $this->authorizePlatformAdmin($request);
+
+        $validated = $this->validateRole($request);
+        $tenantId = $validated['scope'] === 'platform' ? null : $validated['tenant_id'];
+
+        $this->ensureUniqueRoleSlug($validated['slug'], $tenantId);
+
+        $role = Role::withoutGlobalScope('tenant')->create([
+            'tenant_id' => $tenantId,
+            'name' => $validated['name'],
+            'slug' => $validated['slug'],
+            'scope' => $validated['scope'],
+            'permissions' => $validated['permissions'],
+        ]);
+
+        $this->audit($request, 'role.created', $role, $role->tenant_id);
+
+        return back()->with('status', 'Role created.');
+    }
+
+    public function updateUserRoles(Request $request, User $user): RedirectResponse
+    {
+        $this->authorizePlatformAdmin($request);
+
+        $validated = $request->validate([
+            'role_ids' => ['present', 'array'],
+            'role_ids.*' => ['integer'],
+        ]);
+
+        $roles = Role::withoutGlobalScopes()
+            ->whereIn('id', $validated['role_ids'])
+            ->get();
+
+        if ($roles->count() !== count(array_unique($validated['role_ids']))) {
+            throw ValidationException::withMessages([
+                'role_ids' => 'One or more selected roles are unavailable.',
+            ]);
+        }
+
+        foreach ($roles as $role) {
+            if ($role->tenant_id !== $user->tenant_id) {
+                throw ValidationException::withMessages([
+                    'role_ids' => 'Roles must match the selected user scope.',
+                ]);
+            }
+        }
+
+        $user->roles()->sync($roles->pluck('id')->all());
+
+        $this->audit($request, 'user.roles.updated', $user, $user->tenant_id, [
+            'role_ids' => $roles->pluck('id')->all(),
+        ]);
+
+        return back()->with('status', 'User roles updated.');
+    }
+
     /**
      * @return array<int, array{id: string, label: string, count?: int}>
      */
@@ -290,6 +354,8 @@ class AdminController extends Controller
             ['id' => 'customers', 'label' => 'Customers', 'count' => Tenant::query()->count()],
             ['id' => 'payments', 'label' => 'Payments', 'count' => PaymentSlip::withoutGlobalScope('tenant')->where('status', 'pending')->count()],
             ['id' => 'logs', 'label' => 'Logs'],
+            ['id' => 'users-roles', 'label' => 'Users & Roles', 'count' => User::query()->count()],
+            ['id' => 'settings', 'label' => 'Settings'],
         ];
     }
 
@@ -311,6 +377,12 @@ class AdminController extends Controller
             'routeEvents' => $this->routeEventRows(),
             'rawPayloads' => $this->rawPayloadRows(),
             'auditLogs' => $this->auditRows(),
+            'users' => $this->userRows(),
+            'roles' => $this->roleRows(),
+            'settings' => $this->settingRows(),
+            'adminModules' => config('mtrack.modules.admin'),
+            'customerModules' => config('mtrack.modules.customer'),
+            'permissionLevels' => config('mtrack.tenancy.permission_levels'),
         ];
     }
 
@@ -644,6 +716,85 @@ class AdminController extends Controller
             ->all();
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function userRows(): array
+    {
+        return User::query()
+            ->with(['tenant:id,name,status,billing_status', 'roles' => fn ($query) => $query->withoutGlobalScopes()->select('roles.id', 'roles.name', 'roles.slug', 'roles.scope', 'roles.tenant_id')])
+            ->latest()
+            ->limit(80)
+            ->get()
+            ->map(fn (User $user): array => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'tenant_id' => $user->tenant_id,
+                'tenant' => $user->tenant?->name ?? 'Platform',
+                'status' => $user->status,
+                'auth_provider' => $user->auth_provider,
+                'last_login_at' => $this->date($user->last_login_at),
+                'roles' => $user->roles
+                    ->map(fn (Role $role): array => [
+                        'id' => $role->id,
+                        'name' => $role->name,
+                        'slug' => $role->slug,
+                        'scope' => $role->scope,
+                    ])
+                    ->values()
+                    ->all(),
+            ])
+            ->all();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function roleRows(): array
+    {
+        return Role::withoutGlobalScopes()
+            ->with('tenant:id,name,status,billing_status')
+            ->withCount('users')
+            ->orderBy('scope')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Role $role): array => [
+                'id' => $role->id,
+                'tenant_id' => $role->tenant_id,
+                'tenant' => $role->tenant?->name ?? 'Platform',
+                'name' => $role->name,
+                'slug' => $role->slug,
+                'scope' => $role->scope,
+                'users_count' => $role->users_count,
+                'permissions' => $role->permissions ?? [],
+            ])
+            ->all();
+    }
+
+    /**
+     * @return array<int, array{label: string, value: string}>
+     */
+    private function settingRows(): array
+    {
+        return [
+            ['label' => 'App URL', 'value' => (string) config('app.url')],
+            ['label' => 'Environment', 'value' => (string) app()->environment()],
+            ['label' => 'Debug mode', 'value' => config('app.debug') ? 'Enabled' : 'Disabled'],
+            ['label' => 'Database', 'value' => (string) config('database.default')],
+            ['label' => 'Queue', 'value' => (string) config('queue.default')],
+            ['label' => 'Cache', 'value' => (string) config('cache.default')],
+            ['label' => 'Reverb host', 'value' => (string) config('broadcasting.connections.reverb.options.host')],
+            ['label' => 'Reverb scheme', 'value' => (string) config('broadcasting.connections.reverb.options.scheme')],
+            ['label' => 'Horizon path', 'value' => (string) config('horizon.path', 'horizon')],
+            ['label' => 'Payload limit', 'value' => number_format((int) config('mtrack.ingestion.max_payload_bytes')).' bytes'],
+            ['label' => 'Ingestion rate limit', 'value' => config('mtrack.ingestion.rate_limit_attempts').' requests / '.config('mtrack.ingestion.rate_limit_decay_minutes').' min'],
+            ['label' => 'Raw retention presets', 'value' => implode(', ', config('mtrack.tenancy.raw_payload_retention_presets')).' days'],
+            ['label' => 'Backup path', 'value' => (string) config('mtrack.operations.backup_path')],
+            ['label' => 'Default access emails', 'value' => collect(config('mtrack.default_access.users'))->pluck('email')->implode(', ')],
+        ];
+    }
+
     private function authorizePlatformAdmin(Request $request): void
     {
         abort_unless($request->user()?->loadMissing('roles')->isPlatformAdmin(), 403);
@@ -664,6 +815,59 @@ class AdminController extends Controller
             'ip_address' => $request->ip(),
             'user_agent' => Str::limit((string) $request->userAgent(), 500, ''),
         ]);
+    }
+
+    /**
+     * @return array{name: string, slug: string, tenant_id: int|null, scope: string, permissions: array<string, mixed>}
+     */
+    private function validateRole(Request $request): array
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'slug' => ['nullable', 'string', 'max:140', 'regex:/^[a-z0-9-]+$/'],
+            'tenant_id' => ['nullable', 'integer', 'exists:tenants,id'],
+            'scope' => ['required', Rule::in(['tenant', 'platform'])],
+            'permissions' => ['required', 'array'],
+            'permissions.modules' => ['required', 'array'],
+            'permissions.modules.*' => [Rule::in(config('mtrack.tenancy.permission_levels'))],
+        ]);
+
+        $validated['slug'] = $validated['slug'] ?: Str::slug($validated['name']);
+        $validated['tenant_id'] = $validated['scope'] === 'platform' ? null : ($validated['tenant_id'] ?? null);
+
+        if ($validated['scope'] === 'tenant' && $validated['tenant_id'] === null) {
+            throw ValidationException::withMessages([
+                'tenant_id' => 'Tenant roles must be assigned to a customer.',
+            ]);
+        }
+
+        $allowedModules = $validated['scope'] === 'platform'
+            ? collect(config('mtrack.modules.admin'))
+            : collect(config('mtrack.modules.customer'));
+
+        foreach (array_keys($validated['permissions']['modules']) as $module) {
+            if (! $allowedModules->contains($module)) {
+                throw ValidationException::withMessages([
+                    'permissions' => "The {$module} module is not valid for {$validated['scope']} roles.",
+                ]);
+            }
+        }
+
+        return $validated;
+    }
+
+    private function ensureUniqueRoleSlug(string $slug, ?int $tenantId): void
+    {
+        $exists = Role::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->where('slug', $slug)
+            ->exists();
+
+        if ($exists) {
+            throw ValidationException::withMessages([
+                'slug' => 'A role with this slug already exists in this scope.',
+            ]);
+        }
     }
 
     private function payloadIdentity(RawPayload $payload): string

@@ -74,6 +74,10 @@ Route::middleware(['auth', 'active.user', 'tenant.resolve', 'active.tenant'])->g
         ->name('admin.geofence.store');
     Route::put('/admin/geofence/{geofence}', [AdminController::class, 'updateGeofence'])
         ->name('admin.geofence.update');
+    Route::post('/admin/roles', [AdminController::class, 'storeRole'])
+        ->name('admin.roles.store');
+    Route::put('/admin/users/{user}/roles', [AdminController::class, 'updateUserRoles'])
+        ->name('admin.users.roles.update');
 
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');

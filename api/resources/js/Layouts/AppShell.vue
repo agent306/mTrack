@@ -23,6 +23,7 @@ import { computed } from 'vue';
 import MTrackBottomNav from '../Components/MTrackBottomNav.vue';
 import MTrackSideNav from '../Components/MTrackSideNav.vue';
 import type { PageProps } from '../types';
+import { route } from 'ziggy-js';
 
 const props = withDefaults(
     defineProps<{
@@ -40,34 +41,36 @@ const props = withDefaults(
 const page = usePage<PageProps>();
 
 const isActive = (href: string) => page.url === href || page.url.startsWith(`${href}/`);
+const adminHref = (module: string) => route('admin.show', { module }, false);
+const customerHref = (module: string) => route('customer.show', { module }, false);
 
 const adminNavItems: Array<{ label: string; module?: string; icon: Component; href?: string; active?: boolean; disabled?: boolean }> = [
-    { label: 'Dashboard', icon: Gauge, href: '/admin/dashboard', active: isActive('/admin/dashboard') || page.url === '/dashboard' },
-    { label: 'Live', icon: MapPinned, href: '/admin/live', active: isActive('/admin/live') },
-    { label: 'Playback', icon: PlayCircle, href: '/admin/playback', active: isActive('/admin/playback') },
-    { label: 'Events', icon: Bell, href: '/admin/events', active: isActive('/admin/events') },
-    { label: 'Devices', icon: RadioTower, href: '/admin/devices', active: isActive('/admin/devices') },
-    { label: 'Geofence', icon: Map, href: '/admin/geofence', active: isActive('/admin/geofence') },
-    { label: 'Routes', icon: Route, href: '/admin/routes', active: isActive('/admin/routes') },
-    { label: 'Customers', icon: Building2, href: '/admin/customers', active: isActive('/admin/customers') },
-    { label: 'Payments', icon: CreditCard, href: '/admin/payments', active: isActive('/admin/payments') },
-    { label: 'Logs', icon: FileText, href: '/admin/logs', active: isActive('/admin/logs') },
-    { label: 'Users & Roles', icon: Users, disabled: true },
-    { label: 'Settings', icon: Settings, disabled: true },
+    { label: 'Dashboard', icon: Gauge, href: adminHref('dashboard'), active: isActive(adminHref('dashboard')) },
+    { label: 'Live', icon: MapPinned, href: adminHref('live'), active: isActive(adminHref('live')) },
+    { label: 'Playback', icon: PlayCircle, href: adminHref('playback'), active: isActive(adminHref('playback')) },
+    { label: 'Events', icon: Bell, href: adminHref('events'), active: isActive(adminHref('events')) },
+    { label: 'Devices', icon: RadioTower, href: adminHref('devices'), active: isActive(adminHref('devices')) },
+    { label: 'Geofence', icon: Map, href: adminHref('geofence'), active: isActive(adminHref('geofence')) },
+    { label: 'Routes', icon: Route, href: adminHref('routes'), active: isActive(adminHref('routes')) },
+    { label: 'Customers', icon: Building2, href: adminHref('customers'), active: isActive(adminHref('customers')) },
+    { label: 'Payments', icon: CreditCard, href: adminHref('payments'), active: isActive(adminHref('payments')) },
+    { label: 'Logs', icon: FileText, href: adminHref('logs'), active: isActive(adminHref('logs')) },
+    { label: 'Users & Roles', icon: Users, href: adminHref('users-roles'), active: isActive(adminHref('users-roles')) },
+    { label: 'Settings', icon: Settings, href: adminHref('settings'), active: isActive(adminHref('settings')) },
 ];
 
 const customerNavItems: Array<{ label: string; module?: string; icon: Component; href?: string; active?: boolean; disabled?: boolean }> = [
-    { label: 'Dashboard', module: 'dashboard', icon: Gauge, href: '/customer/dashboard', active: isActive('/customer/dashboard') || page.url === '/dashboard' },
-    { label: 'Live', module: 'live', icon: MapPinned, href: '/customer/live', active: isActive('/customer/live') },
-    { label: 'Playback', module: 'playback', icon: PlayCircle, href: '/customer/playback', active: isActive('/customer/playback') },
-    { label: 'Events', module: 'events', icon: Bell, href: '/customer/events', active: isActive('/customer/events') },
-    { label: 'My Fleets', module: 'my_fleets', icon: RadioTower, href: '/customer/my-fleets', active: isActive('/customer/my-fleets') },
-    { label: 'Geofence', module: 'geofence', icon: Map, href: '/customer/geofence', active: isActive('/customer/geofence') },
-    { label: 'Analysis', module: 'analysis', icon: BarChart3, href: '/customer/analysis', active: isActive('/customer/analysis') },
-    { label: 'Routes', module: 'routes', icon: Route, href: '/customer/routes', active: isActive('/customer/routes') },
-    { label: 'Setting', module: 'settings', icon: Settings, href: '/customer/setting', active: isActive('/customer/setting') },
-    { label: 'Billing', module: 'billing', icon: Wallet, href: '/customer/billing', active: isActive('/customer/billing') },
-    { label: 'Audit Log', module: 'audit_log', icon: FileText, href: '/customer/audit-log', active: isActive('/customer/audit-log') },
+    { label: 'Dashboard', module: 'dashboard', icon: Gauge, href: customerHref('dashboard'), active: isActive(customerHref('dashboard')) },
+    { label: 'Live', module: 'live', icon: MapPinned, href: customerHref('live'), active: isActive(customerHref('live')) },
+    { label: 'Playback', module: 'playback', icon: PlayCircle, href: customerHref('playback'), active: isActive(customerHref('playback')) },
+    { label: 'Events', module: 'events', icon: Bell, href: customerHref('events'), active: isActive(customerHref('events')) },
+    { label: 'My Fleets', module: 'my_fleets', icon: RadioTower, href: customerHref('my-fleets'), active: isActive(customerHref('my-fleets')) },
+    { label: 'Geofence', module: 'geofence', icon: Map, href: customerHref('geofence'), active: isActive(customerHref('geofence')) },
+    { label: 'Analysis', module: 'analysis', icon: BarChart3, href: customerHref('analysis'), active: isActive(customerHref('analysis')) },
+    { label: 'Routes', module: 'routes', icon: Route, href: customerHref('routes'), active: isActive(customerHref('routes')) },
+    { label: 'Setting', module: 'settings', icon: Settings, href: customerHref('setting'), active: isActive(customerHref('setting')) },
+    { label: 'Billing', module: 'billing', icon: Wallet, href: customerHref('billing'), active: isActive(customerHref('billing')) },
+    { label: 'Audit Log', module: 'audit_log', icon: FileText, href: customerHref('audit-log'), active: isActive(customerHref('audit-log')) },
 ];
 
 const navItems = computed(() => {
@@ -81,30 +84,30 @@ const navItems = computed(() => {
 });
 
 const adminMobileNavItems: Array<{ label: string; module?: string; icon: Component; href?: string; active?: boolean; disabled?: boolean }> = [
-    { label: 'Dashboard', icon: Gauge, href: '/admin/dashboard', active: isActive('/admin/dashboard') || page.url === '/dashboard' },
-    { label: 'Logs', icon: FileText, href: '/admin/logs', active: isActive('/admin/logs') },
-    { label: 'Live', icon: MapPinned, href: '/admin/live', active: isActive('/admin/live') },
-    { label: 'Playback', icon: PlayCircle, href: '/admin/playback', active: isActive('/admin/playback') },
-    { label: 'Payments', icon: CreditCard, href: '/admin/payments', active: isActive('/admin/payments') },
+    { label: 'Dashboard', icon: Gauge, href: adminHref('dashboard'), active: isActive(adminHref('dashboard')) },
+    { label: 'Logs', icon: FileText, href: adminHref('logs'), active: isActive(adminHref('logs')) },
+    { label: 'Live', icon: MapPinned, href: adminHref('live'), active: isActive(adminHref('live')) },
+    { label: 'Users', icon: Users, href: adminHref('users-roles'), active: isActive(adminHref('users-roles')) },
+    { label: 'Settings', icon: Settings, href: adminHref('settings'), active: isActive(adminHref('settings')) },
 ];
 
 const customerMobileNavItems = computed(() => {
     const allowed = new Set(props.allowedModules);
 
     return [
-        { label: 'Dashboard', module: 'dashboard', icon: Gauge, href: '/customer/dashboard', active: isActive('/customer/dashboard') || page.url === '/dashboard' },
-        { label: 'Events', module: 'events', icon: Bell, href: '/customer/events', active: isActive('/customer/events') },
-        { label: 'Live', module: 'live', icon: MapPinned, href: '/customer/live', active: isActive('/customer/live') },
-        { label: 'Playback', module: 'playback', icon: PlayCircle, href: '/customer/playback', active: isActive('/customer/playback') },
-        { label: 'Setting', module: 'settings', icon: Settings, href: '/customer/setting', active: isActive('/customer/setting') },
+        { label: 'Dashboard', module: 'dashboard', icon: Gauge, href: customerHref('dashboard'), active: isActive(customerHref('dashboard')) },
+        { label: 'Events', module: 'events', icon: Bell, href: customerHref('events'), active: isActive(customerHref('events')) },
+        { label: 'Live', module: 'live', icon: MapPinned, href: customerHref('live'), active: isActive(customerHref('live')) },
+        { label: 'Playback', module: 'playback', icon: PlayCircle, href: customerHref('playback'), active: isActive(customerHref('playback')) },
+        { label: 'Setting', module: 'settings', icon: Settings, href: customerHref('setting'), active: isActive(customerHref('setting')) },
     ].filter((item) => allowed.has(item.module));
 });
 
 const mobileNavItems = computed(() => (props.surface === 'customer' ? customerMobileNavItems.value : adminMobileNavItems));
 const workspaceLabel = computed(() => (props.surface === 'customer' ? 'Customer web' : props.surface === 'admin' ? 'Admin web' : 'Foundation'));
-const workspaceHref = computed(() => (props.surface === 'customer' ? '/customer/dashboard' : '/admin/dashboard'));
+const workspaceHref = computed(() => route('dashboard', undefined, false));
 
-const logout = () => router.post('/logout');
+const logout = () => router.post(route('logout'));
 </script>
 
 <template>

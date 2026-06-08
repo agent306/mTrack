@@ -19,6 +19,7 @@ import MTrackState from '../../Components/MTrackState.vue';
 import MTrackTabs from '../../Components/MTrackTabs.vue';
 import AppShell from '../../Layouts/AppShell.vue';
 import type { PageProps } from '../../types';
+import { route } from 'ziggy-js';
 
 type Tone = 'brand' | 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 type PermissionLevel = 'hide' | 'view' | 'edit';
@@ -260,7 +261,7 @@ props.trackers.forEach((tracker) => {
 
 const metricIcon = (metric: Metric) => (metric.icon ? iconByName[metric.icon] : undefined);
 const moduleSlug = (id: string) => props.modules.find((module) => module.id === id)?.slug ?? id.replaceAll('_', '-');
-const selectModule = (id: string) => router.visit(`/customer/${moduleSlug(id)}`);
+const selectModule = (id: string) => router.visit(route('customer.show', { module: moduleSlug(id) }));
 const canEdit = (module: string) => props.permissions[module] === 'edit';
 
 const eventTabs = computed(() => [
@@ -355,27 +356,30 @@ const togglePlayback = () => {
 
 onUnmounted(stopPlayback);
 
-const createFleetGroup = () => router.post('/customer/fleet-groups', fleetForm);
-const updateTracker = (tracker: Tracker) => router.put(`/customer/trackers/${tracker.id}`, trackerForms[tracker.id]);
-const createGeofence = () => router.post('/customer/geofence', geofenceForm);
+const createFleetGroup = () => router.post(route('customer.fleet-groups.store'), fleetForm);
+const updateTracker = (tracker: Tracker) => router.put(route('customer.trackers.update', { trackerDevice: tracker.id }), trackerForms[tracker.id]);
+const createGeofence = () => router.post(route('customer.geofence.store'), geofenceForm);
 const modifyGeofence = (geofence: GeofenceRow) => {
     const name = window.prompt('Geofence name', geofence.name);
     if (!name) return;
 
-    router.put(`/customer/geofence/${geofence.id}`, {
+    router.put(route('customer.geofence.update', { geofence: geofence.id }), {
         name,
         speed_limit: geofence.speed_limit,
         entrance_alert_enabled: geofence.entrance_alert_enabled,
         exit_alert_enabled: geofence.exit_alert_enabled,
     });
 };
-const createLicenseRequest = () => router.post('/customer/billing/license-requests', billingForm);
-const uploadPaymentSlip = () => router.post('/customer/billing/payment-slips', slipForm);
-const saveSettings = () => router.post('/customer/settings', settingsForm);
-const regenerateApiToken = () => router.post('/customer/settings/api-token');
+const createLicenseRequest = () => router.post(route('customer.billing.license-requests.store'), billingForm);
+const uploadPaymentSlip = () => router.post(route('customer.billing.payment-slips.store'), slipForm);
+const saveSettings = () => router.post(route('customer.settings.store'), settingsForm);
+const regenerateApiToken = () => router.post(route('customer.settings.api-token'));
 const exportCsv = (report: string) => {
     const columns = selectedExport[report] ?? props.exportColumns[report] ?? [];
-    window.location.href = `/customer/exports/${report}?columns=${encodeURIComponent(columns.join(','))}`;
+    window.location.href = route('customer.exports.show', {
+        report,
+        _query: { columns: columns.join(',') },
+    });
 };
 </script>
 

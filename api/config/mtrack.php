@@ -13,6 +13,8 @@ $adminModules = [
     'customers',
     'payments',
     'logs',
+    'users-roles',
+    'settings',
 ];
 
 $customerModules = [
