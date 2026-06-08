@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Customer;
 
+use App\Billing\BillingManager;
 use App\Http\Controllers\Controller;
 use App\Models\AlertEvent;
 use App\Models\AuditLog;
@@ -17,6 +18,8 @@ use App\Models\Role;
 use App\Models\TenantSetting;
 use App\Models\TrackerDevice;
 use App\Models\User;
+use App\Reports\ReportExportService;
+use App\Support\Audit\AuditLogger;
 use App\Support\Authorization\PermissionMatrix;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
@@ -44,13 +47,7 @@ class CustomerController extends Controller
         'audit_log' => ['label' => 'Audit Log', 'slug' => 'audit-log'],
     ];
 
-    private const EXPORT_COLUMNS = [
-        'routes' => ['tracker', 'event_timestamp', 'latitude', 'longitude', 'speed', 'heading'],
-        'events' => ['type', 'tracker', 'occurred_at', 'resolved_at', 'severity'],
-        'device_logs' => ['received_at', 'tracker', 'identity', 'contract', 'status', 'reason'],
-        'audit_log' => ['created_at', 'actor_id', 'action', 'subject_type', 'subject_id'],
-        'analysis' => ['metric', 'value'],
-    ];
+    private const EXPORT_COLUMNS = ReportExportService::COLUMNS;
 
     public function show(Request $request, string $module = 'dashboard'): Response
     {
@@ -157,7 +154,7 @@ class CustomerController extends Controller
         return back()->with('status', 'Geofence updated.');
     }
 
-    public function storeLicenseRequest(Request $request): RedirectResponse
+    public function storeLicenseRequest(Request $request, BillingManager $billing): RedirectResponse
     {
         $this->authorizeEdit($request, 'billing');
 
@@ -168,29 +165,18 @@ class CustomerController extends Controller
         ]);
 
         $plan = LicensePlan::query()->findOrFail($validated['license_plan_id']);
-        $amount = (float) $plan->price_amount * (int) $validated['requested_device_count'];
-
-        $licenseRequest = LicenseRequest::query()->create([
-            'tenant_id' => $request->user()?->tenant_id,
-            'license_plan_id' => $plan->id,
-            'requested_by_user_id' => $request->user()?->id,
-            'request_type' => $validated['request_type'],
-            'requested_device_count' => $validated['requested_device_count'],
-            'amount' => $amount,
-            'currency' => $plan->currency,
-            'status' => 'pending',
-            'metadata' => ['plan' => $plan->name],
-        ]);
-
-        $this->audit($request, 'license_request.created', $licenseRequest, [
-            'request_type' => $validated['request_type'],
-            'requested_device_count' => $validated['requested_device_count'],
-        ]);
+        $billing->createLicenseRequest(
+            $request->user(),
+            $plan,
+            $validated['request_type'],
+            (int) $validated['requested_device_count'],
+            $request,
+        );
 
         return back()->with('status', 'License request created. Upload a payment slip to proceed.');
     }
 
-    public function uploadPaymentSlip(Request $request): RedirectResponse
+    public function uploadPaymentSlip(Request $request, BillingManager $billing): RedirectResponse
     {
         $this->authorizeEdit($request, 'billing');
 
@@ -203,20 +189,13 @@ class CustomerController extends Controller
         $licenseRequest = LicenseRequest::query()->findOrFail($validated['license_request_id']);
         abort_unless($licenseRequest->tenant_id === $request->user()?->tenant_id, 403);
 
-        $slip = PaymentSlip::query()->create([
-            'tenant_id' => $request->user()?->tenant_id,
-            'license_request_id' => $licenseRequest->id,
-            'uploaded_by_user_id' => $request->user()?->id,
-            'file_path' => 'manual-slips/'.Str::uuid().'-'.$validated['original_filename'],
-            'original_filename' => $validated['original_filename'],
-            'amount' => $validated['amount'] ?? $licenseRequest->amount,
-            'status' => 'pending',
-            'metadata' => ['uploaded_from' => 'customer_web'],
-        ]);
-
-        $this->audit($request, 'payment_slip.uploaded', $slip, [
-            'license_request_id' => $licenseRequest->id,
-        ]);
+        $billing->uploadPaymentSlip(
+            $request->user(),
+            $licenseRequest,
+            $validated['original_filename'],
+            isset($validated['amount']) ? (float) $validated['amount'] : null,
+            $request,
+        );
 
         return back()->with('status', 'Payment slip submitted for approval.');
     }
@@ -270,32 +249,19 @@ class CustomerController extends Controller
         return back()->with('status', 'API token regenerated. Copy the new token from the secure operator workflow.');
     }
 
-    public function exportCsv(Request $request, string $report): StreamedResponse
+    public function exportCsv(Request $request, string $report, ReportExportService $exports, AuditLogger $audit): StreamedResponse
     {
-        $report = $this->normalizeModule($report);
-        abort_unless(array_key_exists($report, self::EXPORT_COLUMNS), 404);
+        $report = $exports->normalize($report);
+        $this->authorizeView($request, $exports->moduleFor($report));
 
-        $module = match ($report) {
-            'device_logs' => 'settings',
-            'audit_log' => 'audit_log',
-            default => $report,
-        };
+        $columns = $exports->columns($report, $request->query('columns', []));
+        $rows = $exports->rows($report, $request->user()?->tenant_id);
 
-        $this->authorizeView($request, $module);
-
-        $requestedColumns = $request->query('columns', []);
-        $requestedColumns = is_string($requestedColumns) ? explode(',', $requestedColumns) : $requestedColumns;
-        $columns = collect($requestedColumns)
-            ->filter(fn (mixed $column): bool => is_string($column) && in_array($column, self::EXPORT_COLUMNS[$report], true))
-            ->values()
-            ->all();
-        $columns = $columns ?: self::EXPORT_COLUMNS[$report];
-        $rows = $this->exportRows($report);
-
-        $this->audit($request, 'report.exported', $request->user()?->tenant, [
+        $audit->record($request->user(), 'report.exported', $request->user()?->tenant, $request->user()?->tenant_id, [
             'report' => $report,
             'columns' => $columns,
-        ]);
+            'scope' => 'tenant',
+        ], $request);
 
         return ResponseFactory::streamDownload(function () use ($columns, $rows): void {
             $handle = fopen('php://output', 'w');
@@ -729,20 +695,6 @@ class CustomerController extends Controller
             'billing' => LicenseRequest::query()->where('status', 'pending')->count(),
             'audit_log' => AuditLog::query()->count(),
             default => 0,
-        };
-    }
-
-    private function exportRows(string $report): array
-    {
-        return match ($report) {
-            'routes' => $this->routeEventRows(TrackerDevice::query()->pluck('id')->all()),
-            'events' => $this->alertRows(TrackerDevice::query()->get()),
-            'device_logs' => $this->rawPayloadRows(TrackerDevice::query()->get()),
-            'audit_log' => $this->auditRows(),
-            'analysis' => collect($this->tripAnalytics($this->routeEventRows(TrackerDevice::query()->pluck('id')->all()))['summary'])
-                ->map(fn (mixed $value, string $metric): array => ['metric' => $metric, 'value' => $value])
-                ->values()
-                ->all(),
         };
     }
 

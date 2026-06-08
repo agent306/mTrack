@@ -2,25 +2,29 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Billing\BillingManager;
 use App\Http\Controllers\Controller;
 use App\Models\AlertEvent;
 use App\Models\AuditLog;
 use App\Models\FleetGroup;
 use App\Models\Geofence;
 use App\Models\LicenseAllocation;
-use App\Models\LicenseRequest;
 use App\Models\NormalizedLocationEvent;
 use App\Models\PaymentSlip;
 use App\Models\RawPayload;
 use App\Models\Tenant;
 use App\Models\TrackerDevice;
+use App\Reports\ReportExportService;
+use App\Support\Audit\AuditLogger;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Response as ResponseFactory;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AdminController extends Controller
 {
@@ -49,32 +53,16 @@ class AdminController extends Controller
         ]);
     }
 
-    public function approvePayment(Request $request, PaymentSlip $paymentSlip): RedirectResponse
+    public function approvePayment(Request $request, PaymentSlip $paymentSlip, BillingManager $billing): RedirectResponse
     {
         $this->authorizePlatformAdmin($request);
 
-        $paymentSlip->forceFill([
-            'status' => 'approved',
-            'reviewed_by_user_id' => $request->user()?->id,
-            'reviewed_at' => now(),
-            'rejection_reason' => null,
-        ])->save();
-
-        $paymentSlip->licenseRequest?->forceFill([
-            'status' => 'approved',
-            'reviewed_by_user_id' => $request->user()?->id,
-            'rejection_reason' => null,
-        ])->save();
-
-        $this->audit($request, 'payment_slip.approved', $paymentSlip, $paymentSlip->tenant_id, [
-            'amount' => $paymentSlip->amount,
-            'license_request_id' => $paymentSlip->license_request_id,
-        ]);
+        $billing->approvePaymentSlip($request->user(), $paymentSlip, $request);
 
         return back()->with('status', 'Payment slip approved.');
     }
 
-    public function rejectPayment(Request $request, PaymentSlip $paymentSlip): RedirectResponse
+    public function rejectPayment(Request $request, PaymentSlip $paymentSlip, BillingManager $billing): RedirectResponse
     {
         $this->authorizePlatformAdmin($request);
 
@@ -82,25 +70,37 @@ class AdminController extends Controller
             'rejection_reason' => ['required', 'string', 'max:500'],
         ]);
 
-        $paymentSlip->forceFill([
-            'status' => 'rejected',
-            'reviewed_by_user_id' => $request->user()?->id,
-            'reviewed_at' => now(),
-            'rejection_reason' => $validated['rejection_reason'],
-        ])->save();
-
-        $paymentSlip->licenseRequest?->forceFill([
-            'status' => 'rejected',
-            'reviewed_by_user_id' => $request->user()?->id,
-            'rejection_reason' => $validated['rejection_reason'],
-        ])->save();
-
-        $this->audit($request, 'payment_slip.rejected', $paymentSlip, $paymentSlip->tenant_id, [
-            'license_request_id' => $paymentSlip->license_request_id,
-            'rejection_reason' => $validated['rejection_reason'],
-        ]);
+        $billing->rejectPaymentSlip($request->user(), $paymentSlip, $validated['rejection_reason'], $request);
 
         return back()->with('status', 'Payment slip rejected.');
+    }
+
+    public function exportCsv(Request $request, string $report, ReportExportService $exports, AuditLogger $audit): StreamedResponse
+    {
+        $this->authorizePlatformAdmin($request);
+
+        $report = $exports->normalize($report);
+        $columns = $exports->columns($report, $request->query('columns', []));
+        $rows = $exports->rows($report);
+
+        $audit->record($request->user(), 'report.exported', null, null, [
+            'report' => $report,
+            'columns' => $columns,
+            'scope' => 'platform',
+        ], $request);
+
+        return ResponseFactory::streamDownload(function () use ($columns, $rows): void {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, $columns);
+
+            foreach ($rows as $row) {
+                fputcsv($handle, collect($columns)->map(fn (string $column): mixed => $row[$column] ?? null)->all());
+            }
+
+            fclose($handle);
+        }, 'mtrack-platform-'.$report.'-'.now()->format('Ymd-His').'.csv', [
+            'Content-Type' => 'text/csv',
+        ]);
     }
 
     public function approveCustomer(Request $request, Tenant $tenant): RedirectResponse

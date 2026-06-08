@@ -1,9 +1,9 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\MagicLinkController;
-use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Customer\CustomerController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -55,6 +55,8 @@ Route::middleware(['auth', 'active.user', 'tenant.resolve', 'active.tenant'])->g
         ->name('customer.show');
 
     Route::redirect('/admin', '/admin/dashboard')->name('admin.index');
+    Route::get('/admin/exports/{report}', [AdminController::class, 'exportCsv'])
+        ->name('admin.exports.show');
     Route::get('/admin/{module}', [AdminController::class, 'show'])->name('admin.show');
     Route::post('/admin/payments/{paymentSlip}/approve', [AdminController::class, 'approvePayment'])
         ->name('admin.payments.approve');

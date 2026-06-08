@@ -332,6 +332,10 @@ const rejectPayment = (payment: Payment) => {
     }
 };
 
+const exportCsv = (report: string) => {
+    window.location.href = `/admin/exports/${report}`;
+};
+
 const approveCustomer = (customer: Customer) => {
     router.post(`/admin/customers/${customer.id}/approve`);
 };
@@ -504,8 +508,9 @@ const updateGeofence = (geofence: GeofenceRow) => {
             </article>
 
             <aside class="mtrack-panel overflow-hidden">
-                <div class="border-b border-line px-5 py-4">
+                <div class="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
                     <h2 class="text-section-title">Fleet panel</h2>
+                    <button type="button" class="mtrack-button-secondary" @click="exportCsv('device_status')">Export status</button>
                 </div>
                 <div class="max-h-[560px] overflow-y-auto">
                     <div v-for="tracker in trackers" :key="tracker.id" class="border-b border-line p-4 last:border-b-0">
@@ -573,8 +578,12 @@ const updateGeofence = (geofence: GeofenceRow) => {
         </section>
 
         <section v-else-if="activeModule === 'events'" class="mtrack-panel overflow-hidden">
-            <div class="border-b border-line px-5 py-4">
+            <div class="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
                 <h2 class="text-section-title">Geofence, overspeed, and device events</h2>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" class="mtrack-button-secondary" @click="exportCsv('events')">Export events</button>
+                    <button type="button" class="mtrack-button-secondary" @click="exportCsv('overspeed')">Export overspeed</button>
+                </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="mtrack-table">
@@ -714,6 +723,7 @@ const updateGeofence = (geofence: GeofenceRow) => {
                         Exit alert
                     </label>
                     <button type="button" class="mtrack-button-primary w-full" @click="saveGeofence">Save geofence</button>
+                    <button type="button" class="mtrack-button-secondary w-full" @click="exportCsv('geofence')">Export geofence</button>
                 </div>
             </aside>
 
@@ -744,8 +754,9 @@ const updateGeofence = (geofence: GeofenceRow) => {
 
         <section v-else-if="activeModule === 'routes'" class="grid gap-6 xl:grid-cols-[1fr_360px]">
             <article class="mtrack-panel overflow-hidden">
-                <div class="border-b border-line px-5 py-4">
+                <div class="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
                     <h2 class="text-section-title">Route table</h2>
+                    <button type="button" class="mtrack-button-secondary" @click="exportCsv('routes')">Export routes</button>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="mtrack-table">
@@ -860,10 +871,11 @@ const updateGeofence = (geofence: GeofenceRow) => {
         </section>
 
         <section v-else-if="activeModule === 'logs'" class="space-y-4">
-            <div class="mtrack-panel grid gap-3 p-4 md:grid-cols-3">
+            <div class="mtrack-panel grid gap-3 p-4 md:grid-cols-[1fr_1fr_1fr_auto]">
                 <input v-model="logFilters.tracker" class="mtrack-input" placeholder="Tracker" />
                 <input v-model="logFilters.contract" class="mtrack-input" placeholder="Protocol or contract" />
                 <input v-model="logFilters.identity" class="mtrack-input" placeholder="Identifier" />
+                <button type="button" class="mtrack-button-secondary" @click="exportCsv('logs')">Export logs</button>
             </div>
 
             <article class="mtrack-panel overflow-hidden">

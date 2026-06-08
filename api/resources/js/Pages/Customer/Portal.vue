@@ -220,12 +220,9 @@ const playbackIndex = ref(0);
 const isPlaying = ref(false);
 const speedMultiplier = ref(1);
 const playbackTimer = ref<number | null>(null);
-const selectedExport = reactive<Record<string, string[]>>({
-    routes: [...(props.exportColumns.routes ?? [])],
-    events: [...(props.exportColumns.events ?? [])],
-    device_logs: [...(props.exportColumns.device_logs ?? [])],
-    audit_log: [...(props.exportColumns.audit_log ?? [])],
-    analysis: [...(props.exportColumns.analysis ?? [])],
+const selectedExport = reactive<Record<string, string[]>>({});
+Object.entries(props.exportColumns).forEach(([report, columns]) => {
+    selectedExport[report] = [...columns];
 });
 
 const fleetForm = reactive({ name: '', visibility: 'private' });
@@ -463,8 +460,9 @@ const exportCsv = (report: string) => {
             </article>
 
             <aside class="mtrack-panel overflow-hidden">
-                <div class="border-b border-line px-5 py-4">
+                <div class="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
                     <h2 class="text-section-title">Fleet and event tabs</h2>
+                    <button type="button" class="mtrack-button-secondary" @click="exportCsv('device_status')">Export status</button>
                 </div>
                 <div class="max-h-[560px] overflow-y-auto">
                     <div v-for="tracker in trackers" :key="tracker.id" class="border-b border-line p-4 last:border-b-0">
@@ -563,7 +561,10 @@ const exportCsv = (report: string) => {
         <section v-else-if="activeModule === 'events'" class="space-y-4">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <MTrackTabs :tabs="eventTabs" :active-id="activeEventType" @select="(id) => (activeEventType = id)" />
-                <button type="button" class="mtrack-button-secondary" @click="exportCsv('events')">Export events</button>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" class="mtrack-button-secondary" @click="exportCsv('events')">Export events</button>
+                    <button type="button" class="mtrack-button-secondary" @click="exportCsv('overspeed')">Export overspeed</button>
+                </div>
             </div>
             <article class="mtrack-panel overflow-hidden">
                 <div class="overflow-x-auto">
@@ -649,6 +650,7 @@ const exportCsv = (report: string) => {
                     <label class="flex items-center gap-2 text-sm font-semibold"><input v-model="geofenceForm.entrance_alert_enabled" type="checkbox" :disabled="!canEdit('geofence')" /> Entrance alert</label>
                     <label class="flex items-center gap-2 text-sm font-semibold"><input v-model="geofenceForm.exit_alert_enabled" type="checkbox" :disabled="!canEdit('geofence')" /> Exit alert</label>
                     <button type="button" class="mtrack-button-primary w-full" :disabled="!canEdit('geofence')" @click="createGeofence">Save geofence</button>
+                    <button type="button" class="mtrack-button-secondary w-full" @click="exportCsv('geofence')">Export geofence</button>
                 </div>
             </aside>
             <article class="mtrack-panel overflow-hidden">
@@ -751,6 +753,7 @@ const exportCsv = (report: string) => {
                     </select>
                     <button type="button" class="mtrack-button-primary w-full" :disabled="!canEdit('settings')" @click="saveSettings">Save settings</button>
                     <button type="button" class="mtrack-button-secondary w-full" :disabled="!canEdit('settings')" @click="regenerateApiToken">Regenerate API token</button>
+                    <button type="button" class="mtrack-button-secondary w-full" @click="exportCsv('logs')">Export logs</button>
                     <div class="text-sm text-muted">Token {{ settings.api_token_preview }} · {{ formatDate(settings.api_token_rotated_at) }}</div>
                 </div>
             </aside>

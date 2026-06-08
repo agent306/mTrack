@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AuditLog;
 use App\Models\Geofence;
+use App\Models\LicenseAllocation;
 use App\Models\LicenseRequest;
 use App\Models\PaymentSlip;
 use App\Models\RawPayload;
@@ -64,10 +65,25 @@ class AdminWebTest extends TestCase
             'status' => 'approved',
             'reviewed_by_user_id' => $admin->id,
         ]);
+        $this->assertDatabaseHas('license_allocations', [
+            'tenant_id' => $tenant->id,
+            'license_plan_id' => $licenseRequest->license_plan_id,
+            'active_device_count' => $licenseRequest->requested_device_count,
+            'status' => 'active',
+        ]);
+        $this->assertDatabaseHas('tenants', [
+            'id' => $tenant->id,
+            'billing_status' => 'active',
+        ]);
         $this->assertDatabaseHas('audit_logs', [
             'tenant_id' => $tenant->id,
             'actor_id' => $admin->id,
             'action' => 'payment_slip.approved',
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'tenant_id' => $tenant->id,
+            'actor_id' => $admin->id,
+            'action' => 'license_allocation.activated',
         ]);
     }
 
@@ -90,6 +106,46 @@ class AdminWebTest extends TestCase
             'id' => $licenseRequest->id,
             'status' => 'rejected',
             'rejection_reason' => 'Unreadable slip',
+        ]);
+        $this->assertDatabaseMissing('license_allocations', [
+            'tenant_id' => $licenseRequest->tenant_id,
+            'license_plan_id' => $licenseRequest->license_plan_id,
+            'status' => 'active',
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'tenant_id' => $licenseRequest->tenant_id,
+            'actor_id' => $admin->id,
+            'action' => 'license_request.rejected',
+        ]);
+    }
+
+    public function test_platform_admin_can_renew_existing_license_allocation(): void
+    {
+        $admin = $this->platformAdmin();
+        $tenant = Tenant::factory()->create();
+        $allocation = LicenseAllocation::factory()->for($tenant)->create([
+            'active_device_count' => 5,
+            'expires_at' => now()->addDays(10),
+        ]);
+        $licenseRequest = LicenseRequest::factory()->for($tenant)->create([
+            'license_plan_id' => $allocation->license_plan_id,
+            'request_type' => 'renew',
+            'requested_device_count' => 3,
+            'status' => 'pending',
+        ]);
+        $slip = PaymentSlip::factory()->forRequest($licenseRequest)->create(['status' => 'pending']);
+
+        $this->actingAs($admin)
+            ->post("/admin/payments/{$slip->id}/approve")
+            ->assertRedirect();
+
+        $this->assertDatabaseCount('license_allocations', 1);
+        $this->assertSame(5, $allocation->refresh()->active_device_count);
+        $this->assertTrue($allocation->expires_at->greaterThan(now()->addYear()));
+        $this->assertDatabaseHas('audit_logs', [
+            'tenant_id' => $tenant->id,
+            'actor_id' => $admin->id,
+            'action' => 'license_allocation.renewed',
         ]);
     }
 
@@ -179,6 +235,23 @@ class AdminWebTest extends TestCase
             'exit_alert_enabled' => false,
         ]);
         $this->assertSame(2, AuditLog::withoutGlobalScope('tenant')->where('tenant_id', $tenant->id)->whereIn('action', ['geofence.created', 'geofence.updated'])->count());
+    }
+
+    public function test_platform_admin_can_export_platform_reports_with_audit(): void
+    {
+        $admin = $this->platformAdmin();
+
+        $response = $this->actingAs($admin)
+            ->get('/admin/exports/device-status?columns=tracker,status')
+            ->assertOk()
+            ->assertHeader('content-type', 'text/csv; charset=UTF-8');
+
+        $this->assertStringContainsString('tracker,status', $response->streamedContent());
+        $this->assertDatabaseHas('audit_logs', [
+            'tenant_id' => null,
+            'actor_id' => $admin->id,
+            'action' => 'report.exported',
+        ]);
     }
 
     private function platformAdmin(): User

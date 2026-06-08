@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\AlertEvent;
+use App\Models\AuditLog;
 use App\Models\FleetGroup;
 use App\Models\Geofence;
 use App\Models\LicensePlan;
 use App\Models\LicenseRequest;
 use App\Models\NormalizedLocationEvent;
+use App\Models\RawPayload;
 use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\TrackerDevice;
@@ -176,6 +179,50 @@ class CustomerWebTest extends TestCase
             'tenant_id' => $tenant->id,
             'action' => 'report.exported',
         ]);
+    }
+
+    public function test_customer_can_export_all_pdf_visible_reports_as_csv(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $user = $this->tenantUser($tenant);
+        $tracker = TrackerDevice::factory()->for($tenant)->create(['display_name' => 'Route Van']);
+        $event = NormalizedLocationEvent::factory()->forTracker($tracker)->create(['speed' => 62.5]);
+        $tracker->forceFill(['last_event_id' => $event->id])->save();
+        Geofence::factory()->for($tenant)->create(['name' => 'Depot']);
+        AlertEvent::factory()->forLocationEvent($event)->create([
+            'type' => 'overspeed',
+            'metadata' => ['severity' => 'open', 'speed' => 62.5, 'speed_limit' => 50],
+        ]);
+        RawPayload::factory()->forTracker($tracker)->create(['processing_status' => 'normalized']);
+        AuditLog::query()->create([
+            'tenant_id' => $tenant->id,
+            'actor_id' => $user->id,
+            'action' => 'seed.audit',
+            'subject_type' => $tracker::class,
+            'subject_id' => $tracker->id,
+        ]);
+
+        $reports = [
+            'geofence' => 'name,fleet_group',
+            'overspeed' => 'tracker,occurred_at',
+            'device_status' => 'tracker,status',
+            'routes' => 'tracker,event_timestamp',
+            'logs' => 'received_at,tracker',
+            'device_logs' => 'received_at,tracker',
+            'analysis' => 'metric,value',
+            'audit_log' => 'created_at,actor_id',
+        ];
+
+        foreach ($reports as $report => $columns) {
+            $response = $this->actingAs($user)
+                ->get("/customer/exports/{$report}?columns={$columns}")
+                ->assertOk()
+                ->assertHeader('content-type', 'text/csv; charset=UTF-8');
+
+            $this->assertStringContainsString($columns, $response->streamedContent());
+        }
+
+        $this->assertSame(count($reports), AuditLog::query()->where('action', 'report.exported')->count());
     }
 
     /**

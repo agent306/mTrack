@@ -5,11 +5,16 @@ namespace App\Tracking;
 use App\Models\AlertEvent;
 use App\Models\NormalizedLocationEvent;
 use App\Models\TrackerDevice;
+use App\Support\Audit\AuditLogger;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 
 class TrackerStateService
 {
+    public function __construct(
+        private readonly AuditLogger $audit,
+    ) {}
+
     public function markLive(TrackerDevice $trackerDevice, NormalizedLocationEvent $locationEvent): void
     {
         $previousStatus = $trackerDevice->status;
@@ -88,7 +93,7 @@ class TrackerStateService
 
     private function createAlert(TrackerDevice $trackerDevice, string $type, Carbon $occurredAt, ?NormalizedLocationEvent $locationEvent = null): void
     {
-        AlertEvent::query()->create([
+        $alert = AlertEvent::query()->create([
             'tenant_id' => $trackerDevice->tenant_id,
             'tracker_device_id' => $trackerDevice->id,
             'normalized_location_event_id' => $locationEvent?->id,
@@ -97,6 +102,12 @@ class TrackerStateService
             'metadata' => [
                 'tracker_status' => $type,
             ],
+        ]);
+
+        $this->audit->record(null, 'alert_event.created', $alert, $trackerDevice->tenant_id, [
+            'type' => $type,
+            'tracker_device_id' => $trackerDevice->id,
+            'normalized_location_event_id' => $locationEvent?->id,
         ]);
     }
 }
