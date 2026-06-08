@@ -7,6 +7,18 @@ use InvalidArgumentException;
 
 class ContractRegistry
 {
+    /**
+     * @return array<int, ParserContract>
+     */
+    public function all(): array
+    {
+        return collect(config('mtrack.ingestion.contracts', []))
+            ->keys()
+            ->map(fn (string $contractKey): ParserContract => $this->resolve($contractKey))
+            ->values()
+            ->all();
+    }
+
     public function resolve(string $contractKey): ParserContract
     {
         $contractClass = config("mtrack.ingestion.contracts.{$contractKey}");

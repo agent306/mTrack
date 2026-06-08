@@ -13,7 +13,7 @@ Route::post('/auth/mobile/refresh', [MobileTokenController::class, 'refresh'])
     ->middleware('throttle:10,1')
     ->name('api.auth.mobile.refresh');
 
-Route::post('/ingest/{contractKey}', [IngestionController::class, 'store'])
+Route::any('/ingest', [IngestionController::class, 'store'])
     ->middleware('throttle:'.config('mtrack.ingestion.rate_limit_attempts').','.config('mtrack.ingestion.rate_limit_decay_minutes'))
     ->name('api.ingest.store');
 

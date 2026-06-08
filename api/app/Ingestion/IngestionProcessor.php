@@ -3,8 +3,10 @@
 namespace App\Ingestion;
 
 use App\Events\TrackerLocationUpdated;
+use App\Ingestion\Contracts\ParserContract;
 use App\Ingestion\Data\IngestionOutcome;
 use App\Ingestion\Data\IngestionPayload;
+use App\Ingestion\Data\ParsedLocation;
 use App\Ingestion\Exceptions\IngestionRejected;
 use App\Models\AuditLog;
 use App\Models\NormalizedLocationEvent;
@@ -22,13 +24,13 @@ class IngestionProcessor
         private readonly TrackerStateService $trackerStates,
     ) {}
 
-    public function processIncoming(string $contractKey, IngestionPayload $payload): IngestionOutcome
+    public function processIncoming(IngestionPayload $payload, ?string $contractKey = null): IngestionOutcome
     {
-        $contract = $this->contracts->resolve($contractKey);
+        $contract = $contractKey === null ? null : $this->contracts->resolve($contractKey);
 
         $rawPayload = RawPayload::query()->create([
-            'parser_contract_key' => $contract->key(),
-            'parser_contract_version' => $contract->version(),
+            'parser_contract_key' => $contract?->key(),
+            'parser_contract_version' => $contract?->version(),
             'received_at' => $payload->receivedAt,
             'headers' => $payload->headers,
             'body_content' => $payload->body,
@@ -98,19 +100,7 @@ class IngestionProcessor
     private function normalize(RawPayload $rawPayload, ?int $actorId = null): IngestionOutcome
     {
         try {
-            if (! is_string($rawPayload->parser_contract_key)) {
-                throw new IngestionRejected('Parser contract key is missing.', 'parser_contract_key');
-            }
-
-            $contract = $this->contracts->resolve($rawPayload->parser_contract_key);
-            $parsed = $contract->parse(new IngestionPayload(
-                body: $rawPayload->body_content,
-                contentType: $rawPayload->body_content_type,
-                headers: $rawPayload->headers ?? [],
-                receivedAt: $rawPayload->received_at,
-            ));
-
-            $tracker = $this->resolveTracker($parsed->deviceIdentity, $contract->key(), $contract->version());
+            [$contract, $parsed, $tracker] = $this->parseAndResolveTracker($rawPayload);
 
             $outcome = DB::transaction(function () use ($rawPayload, $tracker, $contract, $parsed, $actorId): IngestionOutcome {
                 $event = NormalizedLocationEvent::query()->create([
@@ -176,11 +166,7 @@ class IngestionProcessor
 
     private function resolveTracker(string $deviceIdentity, string $contractKey, int $contractVersion): TrackerDevice
     {
-        $tracker = TrackerDevice::withoutGlobalScopes()
-            ->where('contract_key', $contractKey)
-            ->where('contract_version', $contractVersion)
-            ->where('metadata->device_identity', $deviceIdentity)
-            ->first();
+        $tracker = $this->findTracker($deviceIdentity, $contractKey, $contractVersion);
 
         if (! $tracker) {
             throw new IngestionRejected('Tracker device could not be resolved for this contract identity.', 'deviceIdentity', [
@@ -191,6 +177,194 @@ class IngestionProcessor
         }
 
         return $tracker;
+    }
+
+    private function findTracker(string $deviceIdentity, string $contractKey, int $contractVersion): ?TrackerDevice
+    {
+        return TrackerDevice::withoutGlobalScopes()
+            ->where('contract_key', $contractKey)
+            ->where('contract_version', $contractVersion)
+            ->where('metadata->device_identity', $deviceIdentity)
+            ->first();
+    }
+
+    /**
+     * @return array{0: ParserContract, 1: ParsedLocation, 2: TrackerDevice}
+     */
+    private function parseAndResolveTracker(RawPayload $rawPayload): array
+    {
+        $payload = $this->payloadFromRaw($rawPayload);
+
+        if (is_string($rawPayload->parser_contract_key)) {
+            $contract = $this->contracts->resolve($rawPayload->parser_contract_key);
+            $parsed = $contract->parse($payload);
+
+            return [$contract, $parsed, $this->resolveTracker($parsed->deviceIdentity, $contract->key(), $contract->version())];
+        }
+
+        return $this->detectContractAndTracker($rawPayload, $payload);
+    }
+
+    /**
+     * @return array{0: ParserContract, 1: ParsedLocation, 2: TrackerDevice}
+     */
+    private function detectContractAndTracker(RawPayload $rawPayload, IngestionPayload $payload): array
+    {
+        $parsedCandidates = [];
+        $rejections = [];
+        $firstParsedContract = null;
+        $firstParsedLocation = null;
+
+        foreach ($this->contracts->all() as $contract) {
+            try {
+                $parsed = $contract->parse($payload);
+            } catch (IngestionRejected $exception) {
+                $rejections[$contract->key()] = [
+                    'failed_field' => $exception->failedField,
+                    'reason' => $exception->getMessage(),
+                ];
+
+                continue;
+            }
+
+            $parsedCandidates[$contract->key()] = [
+                'device_identity' => $parsed->deviceIdentity,
+                'parser_contract_version' => $contract->version(),
+            ];
+            $firstParsedContract ??= $contract;
+            $firstParsedLocation ??= $parsed;
+
+            $tracker = $this->findTracker($parsed->deviceIdentity, $contract->key(), $contract->version());
+
+            if ($tracker) {
+                $rawPayload->forceFill([
+                    'parser_contract_key' => $contract->key(),
+                    'parser_contract_version' => $contract->version(),
+                    'metadata' => [
+                        ...($rawPayload->metadata ?? []),
+                        'contract_detection' => [
+                            'mode' => 'auto',
+                            'matched_contract_key' => $contract->key(),
+                            'device_identity' => $parsed->deviceIdentity,
+                        ],
+                    ],
+                ])->save();
+
+                return [$contract, $parsed, $tracker];
+            }
+        }
+
+        if ($firstParsedContract && $firstParsedLocation) {
+            $rawPayload->forceFill([
+                'parser_contract_key' => $firstParsedContract->key(),
+                'parser_contract_version' => $firstParsedContract->version(),
+            ])->save();
+
+            throw new IngestionRejected('Tracker device could not be resolved for this detected contract identity.', 'deviceIdentity', [
+                'device_identity' => $firstParsedLocation->deviceIdentity,
+                'parser_contract_key' => $firstParsedContract->key(),
+                'parser_contract_version' => $firstParsedContract->version(),
+                'contract_detection' => [
+                    'mode' => 'auto',
+                    'parsed_candidates' => $parsedCandidates,
+                ],
+            ]);
+        }
+
+        $tracker = $this->detectTrackerFromPayloadIdentity($payload);
+
+        if ($tracker && is_string($tracker->contract_key)) {
+            $contract = $this->contracts->resolve($tracker->contract_key);
+
+            $rawPayload->forceFill([
+                'parser_contract_key' => $contract->key(),
+                'parser_contract_version' => $contract->version(),
+            ])->save();
+
+            $parsed = $contract->parse($payload);
+
+            return [$contract, $parsed, $tracker];
+        }
+
+        throw $this->contractDetectionRejected($rejections);
+    }
+
+    private function contractDetectionRejected(array $rejections): IngestionRejected
+    {
+        $fields = collect($rejections)
+            ->pluck('failed_field')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($fields->count() === 1) {
+            $rejection = collect($rejections)->firstWhere('failed_field', $fields->first());
+
+            return new IngestionRejected((string) $rejection['reason'], (string) $fields->first(), [
+                'contract_detection' => [
+                    'mode' => 'auto',
+                    'rejections' => $rejections,
+                ],
+            ]);
+        }
+
+        return new IngestionRejected('Parser contract could not be detected from this payload.', 'parser_contract_key', [
+            'contract_detection' => [
+                'mode' => 'auto',
+                'rejections' => $rejections,
+            ],
+        ]);
+    }
+
+    private function detectTrackerFromPayloadIdentity(IngestionPayload $payload): ?TrackerDevice
+    {
+        $identities = collect([
+            $payload->headers['x-device-id'] ?? null,
+            $payload->headers['x-tracker-id'] ?? null,
+        ]);
+
+        $data = json_decode($payload->body, true);
+
+        if (is_array($data)) {
+            $identities = $identities->merge(collect([
+                data_get($data, 'trackerId'),
+                data_get($data, 'deviceId'),
+                data_get($data, 'device.id'),
+                data_get($data, 'imei'),
+                data_get($data, 'deviceImei'),
+                data_get($data, 'device.imei'),
+                data_get($data, 'terminalPhone'),
+                data_get($data, 'terminal_phone'),
+                data_get($data, 'sim'),
+                data_get($data, 'mmsi'),
+                data_get($data, 'ais.mmsi'),
+                data_get($data, 'vessel.mmsi'),
+            ]));
+        }
+
+        foreach ($identities->filter(fn ($identity): bool => is_scalar($identity) && trim((string) $identity) !== '')->unique() as $identity) {
+            $tracker = TrackerDevice::withoutGlobalScopes()
+                ->where('metadata->device_identity', trim((string) $identity))
+                ->whereNotNull('contract_key')
+                ->whereNotNull('contract_version')
+                ->first();
+
+            if ($tracker) {
+                return $tracker;
+            }
+        }
+
+        return null;
+    }
+
+    private function payloadFromRaw(RawPayload $rawPayload): IngestionPayload
+    {
+        return new IngestionPayload(
+            body: $rawPayload->body_content,
+            contentType: $rawPayload->body_content_type,
+            headers: $rawPayload->headers ?? [],
+            receivedAt: $rawPayload->received_at,
+        );
     }
 
     private function reject(RawPayload $rawPayload, IngestionRejected $exception, ?int $actorId = null): IngestionOutcome

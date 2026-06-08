@@ -12,12 +12,14 @@ use InvalidArgumentException;
 
 class IngestionController extends Controller
 {
-    public function store(Request $request, string $contractKey, IngestionProcessor $ingestion): JsonResponse
+    public function store(Request $request, IngestionProcessor $ingestion): JsonResponse
     {
+        [$body, $contentType] = $this->payloadBody($request);
+
         try {
-            $outcome = $ingestion->processIncoming($contractKey, new IngestionPayload(
-                body: $request->getContent(),
-                contentType: $request->headers->get('content-type'),
+            $outcome = $ingestion->processIncoming(new IngestionPayload(
+                body: $body,
+                contentType: $contentType,
                 headers: $this->diagnosticHeaders($request),
                 receivedAt: Carbon::now(),
             ));
@@ -52,9 +54,41 @@ class IngestionController extends Controller
      */
     private function diagnosticHeaders(Request $request): array
     {
-        return collect(config('mtrack.ingestion.diagnostic_headers'))
+        $headers = collect(config('mtrack.ingestion.diagnostic_headers'))
             ->mapWithKeys(fn (string $header): array => [$header => $request->headers->get($header)])
             ->filter(fn (?string $value): bool => $value !== null)
             ->all();
+
+        return [
+            ...$headers,
+            'x-ingest-method' => $request->method(),
+            'x-ingest-query' => $request->getQueryString(),
+        ];
+    }
+
+    /**
+     * @return array{0: string, 1: string|null}
+     */
+    private function payloadBody(Request $request): array
+    {
+        $body = $request->getContent();
+
+        if ($body !== '') {
+            return [$body, $request->headers->get('content-type')];
+        }
+
+        $payload = $request->query('payload');
+
+        if (is_scalar($payload)) {
+            return [(string) $payload, $request->headers->get('content-type') ?? 'text/plain'];
+        }
+
+        $query = $request->query->all();
+
+        if ($query !== []) {
+            return [json_encode($query, JSON_THROW_ON_ERROR), 'application/json'];
+        }
+
+        return ['', $request->headers->get('content-type')];
     }
 }

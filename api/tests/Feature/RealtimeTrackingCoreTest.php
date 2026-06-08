@@ -164,7 +164,7 @@ class RealtimeTrackingCoreTest extends TestCase
     {
         return $this->call(
             method: 'POST',
-            uri: '/api/ingest/demo-json',
+            uri: '/api/ingest',
             server: ['CONTENT_TYPE' => 'application/json'],
             content: $body,
         );

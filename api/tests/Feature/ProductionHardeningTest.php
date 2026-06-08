@@ -82,9 +82,21 @@ class ProductionHardeningTest extends TestCase
         $route = Route::getRoutes()->getByName('api.ingest.store');
 
         $this->assertNotNull($route);
+        $this->assertSame('api/ingest', $route->uri());
         $this->assertContains(
             'throttle:'.config('mtrack.ingestion.rate_limit_attempts').','.config('mtrack.ingestion.rate_limit_decay_minutes'),
             $route->gatherMiddleware(),
         );
+    }
+
+    public function test_ingestion_route_accepts_common_tracker_http_methods(): void
+    {
+        $route = Route::getRoutes()->getByName('api.ingest.store');
+
+        $this->assertNotNull($route);
+
+        foreach (['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as $method) {
+            $this->assertContains($method, $route->methods());
+        }
     }
 }

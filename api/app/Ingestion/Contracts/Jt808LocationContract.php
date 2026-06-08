@@ -40,6 +40,10 @@ class Jt808LocationContract extends AbstractJsonGatewayLocationContract
         }
 
         $hex = str_replace(['7D02', '7D01'], ['7E', '7D'], $hex);
+        if ($hex === '' || strlen($hex) % 2 !== 0) {
+            throw new IngestionRejected('JT808 payload is not a valid hex frame.', 'body');
+        }
+
         $bytes = hex2bin($hex);
 
         if ($bytes === false || strlen($bytes) < 41) {
@@ -65,7 +69,7 @@ class Jt808LocationContract extends AbstractJsonGatewayLocationContract
         $longitude = $this->uint32($payload, 12) / 1_000_000;
         $this->assertCoordinates($latitude, $longitude);
 
-        $speedKmh = $this->uint16($payload, 20) / 10;
+        $speedKmh = $this->uint16($payload, 18) / 10;
 
         return new ParsedLocation(
             deviceIdentity: $terminalPhone,

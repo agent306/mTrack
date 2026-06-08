@@ -51,6 +51,41 @@ class IngestionPipelineTest extends TestCase
         ]);
     }
 
+    public function test_query_string_payload_is_stored_and_normalized_for_get_callbacks(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $tracker = TrackerDevice::factory()->create([
+            'tenant_id' => $tenant->id,
+            'contract_key' => 'demo-json',
+            'contract_version' => 1,
+            'metadata' => ['device_identity' => 'query-tracker-001'],
+        ]);
+
+        $response = $this->call(
+            method: 'GET',
+            uri: '/api/ingest?'.http_build_query([
+                'deviceId' => 'query-tracker-001',
+                'timestamp' => '2026-06-08T04:30:00Z',
+                'latitude' => '24.8607',
+                'longitude' => '67.0011',
+                'speedMps' => '20',
+            ]),
+        );
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('status', 'normalized')
+            ->assertJsonPath('tracker_device_id', $tracker->id);
+
+        $rawPayload = RawPayload::firstOrFail();
+        $event = NormalizedLocationEvent::firstOrFail();
+
+        $this->assertSame('GET', $rawPayload->headers['x-ingest-method']);
+        $this->assertStringContainsString('query-tracker-001', $rawPayload->headers['x-ingest-query']);
+        $this->assertSame('application/json', $rawPayload->body_content_type);
+        $this->assertSame('20.00', $event->speed);
+    }
+
     #[DataProvider('trackerProtocolPayloads')]
     public function test_registered_tracker_protocol_strategies_normalize_payloads(
         string $contractKey,
@@ -68,7 +103,7 @@ class IngestionPipelineTest extends TestCase
             'metadata' => ['device_identity' => $deviceIdentity],
         ]);
 
-        $response = $this->postRawIngestionFor($contractKey, $this->fixture($fixture), $contentType);
+        $response = $this->postRawIngestionFor($this->fixture($fixture), $contentType);
 
         $response
             ->assertCreated()
@@ -82,6 +117,9 @@ class IngestionPipelineTest extends TestCase
         $this->assertSame($deviceIdentity, $event->normalized_metadata['device_identity']);
         $this->assertSame($expectedProtocolFamily, $event->normalized_metadata['protocol_family']);
         $this->assertSame($expectedPayloadFormat, $event->normalized_metadata['payload_format']);
+        if ($contractKey === 'jt808') {
+            $this->assertSame('20.00', $event->speed);
+        }
         $this->assertNotNull($tracker->refresh()->last_event_id);
     }
 
@@ -99,6 +137,20 @@ class IngestionPipelineTest extends TestCase
             'AIS CDAC JSON gateway' => ['ais-cdac', 'ais-cdac-valid.json', '414000222', 'ais-cdac', 'json'],
             'VL512 CSV gateway' => ['vl512-gnss', 'vl512-csv-valid.txt', 'VL512-001', 'vl512-gnss', 'csv', 'text/plain'],
         ];
+    }
+
+    public function test_auto_detected_unregistered_tracker_payload_keeps_contract_for_assignment(): void
+    {
+        $this->postRawIngestion($this->fixture('jimi-valid.json'))
+            ->assertUnprocessable()
+            ->assertJsonPath('diagnostics.failed_field', 'deviceIdentity');
+
+        $rawPayload = RawPayload::firstOrFail();
+
+        $this->assertSame('jimi', $rawPayload->parser_contract_key);
+        $this->assertSame(1, $rawPayload->parser_contract_version);
+        $this->assertSame('JIMI-867000111222333', $rawPayload->metadata['diagnostics']['device_identity']);
+        $this->assertDatabaseCount('normalized_location_events', 0);
     }
 
     public function test_missing_identity_payload_is_rejected_with_diagnostics_after_raw_capture(): void
@@ -212,14 +264,14 @@ class IngestionPipelineTest extends TestCase
 
     private function postRawIngestion(string $body)
     {
-        return $this->postRawIngestionFor('demo-json', $body);
+        return $this->postRawIngestionFor($body);
     }
 
-    private function postRawIngestionFor(string $contractKey, string $body, string $contentType = 'application/json')
+    private function postRawIngestionFor(string $body, string $contentType = 'application/json')
     {
         return $this->call(
             method: 'POST',
-            uri: "/api/ingest/{$contractKey}",
+            uri: '/api/ingest',
             server: ['CONTENT_TYPE' => $contentType],
             content: $body,
         );
