@@ -55,6 +55,11 @@ class CustomerController extends Controller
         $this->authorizeTenantUser($request);
         $this->authorizeView($request, $module);
 
+        if (in_array($module, ['dashboard', 'live', 'my_fleets', 'geofence', 'events', 'analysis', 'routes', 'playback'])
+            && $request->user()->hasPermission($module)) {
+            return app(WorkspaceController::class)->show($request, $module);
+        }
+
         return Inertia::render('Customer/Portal', [
             'activeModule' => $module,
             'modules' => $this->moduleTabs($request),

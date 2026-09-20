@@ -17,6 +17,12 @@ class TrackerStateService
 
     public function markLive(TrackerDevice $trackerDevice, NormalizedLocationEvent $locationEvent): void
     {
+        // Serialize updates for a tracker, including geofence baselines and transitions.
+        $trackerDevice = TrackerDevice::withoutGlobalScopes()->lockForUpdate()->findOrFail($trackerDevice->id);
+        if ($trackerDevice->last_event_id && $trackerDevice->last_seen_at && $locationEvent->event_timestamp->lessThanOrEqualTo($trackerDevice->last_seen_at)) {
+            return;
+        }
+        app(GeofenceEvaluator::class)->evaluate($trackerDevice, $locationEvent);
         $previousStatus = $trackerDevice->status;
         $status = $this->liveStatusFor($locationEvent);
 

@@ -40,11 +40,11 @@ class CustomerWebTest extends TestCase
             ->get('/customer/dashboard')
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->component('Customer/Portal', false)
+                ->component('Customer/Workspace', false)
                 ->where('activeModule', 'dashboard')
                 ->has('trackers', 1)
                 ->where('trackers.0.display_name', 'Visible Van')
-                ->where('dashboardMetrics.5.value', 1));
+                ->where('trackers.0.latitude', 24.8607));
     }
 
     public function test_hidden_customer_module_is_forbidden_and_not_in_module_tabs(): void
@@ -61,8 +61,7 @@ class CustomerWebTest extends TestCase
             ->get('/customer/dashboard')
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->where('allowedModules', ['dashboard'])
-                ->has('modules', 1));
+                ->where('allowedModules', ['dashboard']));
 
         $this->actingAs($user)
             ->get('/customer/billing')

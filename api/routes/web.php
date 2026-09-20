@@ -38,6 +38,13 @@ Route::middleware(['auth', 'active.user', 'tenant.resolve', 'active.tenant'])->g
     })->name('dashboard');
 
     Route::redirect('/customer', '/customer/dashboard')->name('customer.index');
+    Route::post('/customer/devices/discover', [\App\Http\Controllers\Customer\WorkspaceController::class, 'discover'])->middleware('throttle:10,1');
+    Route::post('/customer/devices/claim', [\App\Http\Controllers\Customer\WorkspaceController::class, 'claim'])->middleware('throttle:10,1');
+    Route::post('/customer/dashboard/preferences', [\App\Http\Controllers\Customer\WorkspaceController::class, 'preferences']);
+    Route::post('/customer/places', [\App\Http\Controllers\Customer\WorkspaceController::class, 'saveFence']);
+    Route::put('/customer/places/{geofence}', [\App\Http\Controllers\Customer\WorkspaceController::class, 'saveFence']);
+    Route::delete('/customer/places/{geofence}', [\App\Http\Controllers\Customer\WorkspaceController::class, 'deleteFence']);
+    Route::get('/customer/reports/places.csv', [\App\Http\Controllers\Customer\WorkspaceController::class, 'export'])->middleware('throttle:10,1');
     Route::get('/customer/exports/{report}', [CustomerController::class, 'exportCsv'])
         ->name('customer.exports.show');
     Route::post('/customer/fleet-groups', [CustomerController::class, 'storeFleetGroup'])

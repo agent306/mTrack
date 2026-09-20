@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import http from 'node:http';
 import net from 'node:net';
+import { startGt06, type TrackerPacket } from './gt06.js';
 
 type Config = {
   port: number;
@@ -31,6 +32,18 @@ type ForwardBufferOptions = {
 };
 
 type HttpStartStatus = 'http' | 'maybe' | 'raw';
+
+async function persistTrackerPacket(packet: TrackerPacket): Promise<void> {
+  const secret = process.env.TRACKER_GATEWAY_SECRET;
+  if (!secret || secret.length < 32) throw new Error('gateway_secret_not_configured');
+  const url = process.env.TRACKER_GATEWAY_URL ?? new URL('/api/gateway/packets', config.ingestUrl).toString();
+  const response = await fetch(url, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
+    body: JSON.stringify(packet), signal: AbortSignal.timeout(config.forwardTimeoutMs),
+  });
+  if (!response.ok) throw new Error(`gateway_rejected_${response.status}`);
+  await response.arrayBuffer();
+}
 
 const HTTP_METHOD_PREFIXES = [
   'GET ',
@@ -477,6 +490,15 @@ function routeSocket(socket: net.Socket): void {
   const onData = (chunk: Buffer): void => {
     chunks.push(chunk);
     total += chunk.length;
+
+    const first = chunks[0]?.[0];
+    if (first === 0x78 || first === 0x79) {
+      if (total < 2) return;
+      routed = true;
+      cleanup();
+      startGt06(socket, Buffer.concat(chunks), persistTrackerPacket, logEvent);
+      return;
+    }
 
     if (total > config.maxPayloadBytes) {
       routeRaw();

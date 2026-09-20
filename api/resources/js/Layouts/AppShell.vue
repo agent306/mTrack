@@ -23,6 +23,7 @@ import MTrackBottomNav from '../Components/MTrackBottomNav.vue';
 import MTrackSideNav from '../Components/MTrackSideNav.vue';
 import type { PageProps } from '../types';
 import { route } from 'ziggy-js';
+import CustomerShell from './CustomerShell.vue';
 
 const props = withDefaults(
     defineProps<{
@@ -107,7 +108,8 @@ const logout = () => router.post(route('logout'));
 </script>
 
 <template>
-    <div class="min-h-screen bg-page text-body">
+    <CustomerShell v-if="surface === 'customer'" :active="page.url.split('/')[2]?.split('?')[0] === 'setting' ? 'settings' : page.url.split('/')[2]?.replaceAll('-', '_') ?? 'dashboard'" :allowed="allowedModules"><slot /></CustomerShell>
+    <div v-else class="min-h-screen bg-page text-body">
         <aside class="fixed inset-y-0 left-0 hidden w-64 border-r border-line bg-primary-dark text-white lg:flex lg:flex-col">
             <div class="flex h-16 items-center gap-3 border-b border-white/10 px-5">
                 <div class="grid size-9 place-items-center rounded-mtrack-md bg-brand font-bold text-primary-dark">m</div>

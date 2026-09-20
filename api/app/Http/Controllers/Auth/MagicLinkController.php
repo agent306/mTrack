@@ -42,7 +42,7 @@ class MagicLinkController extends Controller
         if ($user) {
             $url = URL::temporarySignedRoute(
                 'auth.magic-link.show',
-                now()->addMinutes(config('mtrack.auth.magic_link_expiration_minutes')),
+                now()->addMinutes((int) config('mtrack.auth.magic_link_expiration_minutes')),
                 ['user' => $user->id]
             );
 

@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\UserRoleController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+Route::post('/gateway/packets', [\App\Http\Controllers\Api\DeviceGatewayController::class, 'store']);
+
 Route::post('/auth/mobile/refresh', [MobileTokenController::class, 'refresh'])
     ->middleware('throttle:10,1')
     ->name('api.auth.mobile.refresh');

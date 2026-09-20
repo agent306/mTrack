@@ -23,6 +23,14 @@ class GoogleAuthController extends Controller
 
         $defaultAccess->provisionForEmail($email, $googleUser->getName(), 'google');
 
+        if (! User::where('email', $email)->exists()) {
+            abort_unless(filter_var($email, FILTER_VALIDATE_EMAIL)
+                && ($googleUser->user['email_verified'] ?? $googleUser->user['verified_email'] ?? false), 403, 'A verified Google email is required.');
+            app(\App\Support\Auth\CustomerRegistration::class)->register(
+                $email, $googleUser->getName() ?: 'My', $googleUser->getId(),
+            );
+        }
+
         $user = User::query()
             ->with('tenant')
             ->where('email', $email)

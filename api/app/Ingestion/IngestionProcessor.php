@@ -150,7 +150,15 @@ class IngestionProcessor
                 return new IngestionOutcome($rawPayload->refresh(), $event);
             });
 
-            event(new TrackerLocationUpdated($outcome->event->loadMissing('trackerDevice')));
+            // Realtime delivery must not make a durably stored tracker upload fail.
+            try {
+                $outcome->event->load('trackerDevice');
+                if ($outcome->event->trackerDevice?->last_event_id === $outcome->event->id) {
+                    event(new TrackerLocationUpdated($outcome->event));
+                }
+            } catch (\Throwable $exception) {
+                Log::warning('tracking.broadcast_unavailable', ['event_id' => $outcome->event->id]);
+            }
 
             $this->logRawPayload('normalized', $outcome->rawPayload, [
                 'normalized_event_id' => $outcome->event?->id,
