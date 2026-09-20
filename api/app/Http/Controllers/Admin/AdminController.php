@@ -47,7 +47,16 @@ class AdminController extends Controller
         'settings',
     ];
 
-    public function show(Request $request, string $module = 'dashboard'): Response
+    public function show(Request $request, string $module = 'dashboard')
+    {
+        $this->authorizePlatformAdmin($request);
+        $aliases = ['logs' => 'events', 'live' => 'dashboard', 'playback' => 'devices', 'routes' => 'devices'];
+        if (isset($aliases[$module])) return redirect('/admin/'.$aliases[$module]);
+        abort_unless(in_array($module, ['dashboard', 'events', 'devices', 'geofence']), 404);
+        return app(\App\Http\Controllers\Customer\WorkspaceController::class)->show($request, $module === 'devices' ? 'my_fleets' : $module);
+    }
+
+    private function legacyShow(Request $request, string $module = 'dashboard'): Response
     {
         $this->authorizePlatformAdmin($request);
         abort_unless(in_array($module, self::MODULES, true), 404);

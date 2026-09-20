@@ -28,9 +28,10 @@ class AdminWebTest extends TestCase
             ->get('/admin/dashboard')
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->component('Admin/Workspace', false)
+                ->component('Customer/Workspace', false)
                 ->where('activeModule', 'dashboard')
-                ->has('modules')
+                ->where('isAdmin', true)
+                ->where('allowedModules', ['dashboard', 'events', 'my_fleets', 'geofence'])
                 ->has('trackers', 1));
     }
 

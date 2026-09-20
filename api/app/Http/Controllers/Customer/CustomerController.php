@@ -49,7 +49,17 @@ class CustomerController extends Controller
 
     private const EXPORT_COLUMNS = ReportExportService::COLUMNS;
 
-    public function show(Request $request, string $module = 'dashboard'): Response
+    public function show(Request $request, string $module = 'dashboard')
+    {
+        $aliases = ['my-fleets' => 'devices', 'live' => 'dashboard', 'analysis' => 'events', 'audit-log' => 'events', 'playback' => 'devices', 'routes' => 'devices'];
+        if (isset($aliases[$module])) return redirect('/customer/'.$aliases[$module]);
+        abort_unless(in_array($module, ['dashboard', 'events', 'devices', 'geofence']), 404);
+        $module = $module === 'devices' ? 'my_fleets' : $module;
+        $this->authorizeTenantUser($request);
+        return app(WorkspaceController::class)->show($request, $module);
+    }
+
+    private function legacyShow(Request $request, string $module = 'dashboard'): Response
     {
         $module = $this->normalizeModule($module);
         $this->authorizeTenantUser($request);

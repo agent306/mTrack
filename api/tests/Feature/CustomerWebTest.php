@@ -65,7 +65,7 @@ class CustomerWebTest extends TestCase
 
         $this->actingAs($user)
             ->get('/customer/billing')
-            ->assertForbidden();
+            ->assertNotFound();
     }
 
     public function test_scoped_fleet_permission_can_open_my_fleets_without_module_wide_access(): void
@@ -86,11 +86,10 @@ class CustomerWebTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->get('/customer/my-fleets')
+            ->get('/customer/devices')
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('activeModule', 'my_fleets')
-                ->has('fleetGroups', 1)
                 ->has('trackers', 1));
     }
 

@@ -52,7 +52,7 @@ class CustomerTrackingTest extends TestCase
         app(DeviceGateway::class)->receive(['imei' => $imei, 'protocol' => 1, 'packet_hex' => '787801', 'iccid' => $iccid]);
         $this->actingAs($owner)->post('/customer/devices/discover', ['imei' => $imei, 'proof' => str_repeat('0', 20)])->assertSessionHasErrors('proof');
         $this->actingAs($owner)->post('/customer/devices/discover', ['imei' => $imei, 'proof' => $iccid])->assertSessionHas('device_discovery');
-        $this->actingAs($owner)->post('/customer/devices/claim', ['imei' => $imei, 'proof' => $iccid, 'name' => 'My car'])->assertRedirect('/customer/my-fleets');
+        $this->actingAs($owner)->post('/customer/devices/claim', ['imei' => $imei, 'proof' => $iccid, 'name' => 'My car'])->assertRedirect('/customer/devices');
         $this->assertSame($owner->tenant_id, TrackerDevice::withoutGlobalScopes()->firstOrFail()->tenant_id);
         $this->actingAs($other)->post('/customer/devices/claim', ['imei' => $imei, 'proof' => $iccid, 'name' => 'Stolen'])->assertSessionHasErrors('proof');
         $this->assertDatabaseCount('tracker_devices', 1);

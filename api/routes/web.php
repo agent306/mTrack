@@ -67,6 +67,12 @@ Route::middleware(['auth', 'active.user', 'tenant.resolve', 'active.tenant'])->g
         ->name('customer.show');
 
     Route::redirect('/admin', '/admin/dashboard')->name('admin.index');
+    Route::post('/admin/dashboard/preferences', [\App\Http\Controllers\Customer\WorkspaceController::class, 'preferences']);
+    Route::post('/admin/connections/{connection}/assign', [\App\Http\Controllers\Customer\WorkspaceController::class, 'assignConnection']);
+    Route::post('/admin/places', [\App\Http\Controllers\Customer\WorkspaceController::class, 'saveFence']);
+    Route::put('/admin/places/{geofence}', [\App\Http\Controllers\Customer\WorkspaceController::class, 'saveFence']);
+    Route::delete('/admin/places/{geofence}', [\App\Http\Controllers\Customer\WorkspaceController::class, 'deleteFence']);
+    Route::get('/admin/reports/places.csv', [\App\Http\Controllers\Customer\WorkspaceController::class, 'export'])->middleware('throttle:10,1');
     Route::get('/admin/exports/{report}', [AdminController::class, 'exportCsv'])
         ->name('admin.exports.show');
     Route::get('/admin/{module}', [AdminController::class, 'show'])->name('admin.show');
