@@ -120,6 +120,12 @@ class IngestionPipelineTest extends TestCase
         if ($contractKey === 'jt808') {
             $this->assertSame('20.00', $event->speed);
         }
+        if ($expectedPayloadFormat === 'h02') {
+            $this->assertEqualsWithDelta(4.227352, (float) $event->latitude, 0.00001);
+            $this->assertEqualsWithDelta(73.543912, (float) $event->longitude, 0.00001);
+            $this->assertSame('2026-10-06 12:33:50', $event->event_timestamp->utc()->format('Y-m-d H:i:s'));
+            $this->assertFalse($event->status_metadata['gps_fix']);
+        }
         $this->assertNotNull($tracker->refresh()->last_event_id);
     }
 
@@ -136,6 +142,7 @@ class IngestionPipelineTest extends TestCase
             'AIS NIC JSON gateway' => ['ais-nic', 'ais-nic-valid.json', '413000111', 'ais-nic', 'json'],
             'AIS CDAC JSON gateway' => ['ais-cdac', 'ais-cdac-valid.json', '414000222', 'ais-cdac', 'json'],
             'VL512 CSV gateway' => ['vl512-gnss', 'vl512-csv-valid.txt', 'VL512-001', 'vl512-gnss', 'csv', 'text/plain'],
+            'VL512 native H02 frame' => ['vl512-gnss', 'vl512-h02-valid.txt', '9171701065', 'vl512-gnss', 'h02', 'application/octet-stream'],
         ];
     }
 
