@@ -99,6 +99,9 @@ class Vl512GnssLocationContract extends AbstractJsonGatewayLocationContract
         $longitude = $this->h02Coordinate($longitude, $lonHemisphere, 'W', 'longitude');
         $this->assertCoordinates($latitude, $longitude);
 
+        // V6 frames end with the SIM ICCID, padded with a trailing F.
+        $iccid = preg_match('/^(\d{18,20})F?$/i', (string) end($frame), $iccidMatch) ? $iccidMatch[1] : null;
+
         $timestamp = Carbon::createFromFormat('dmyHis', $date.$time, 'UTC');
 
         if ($timestamp === false || $timestamp->format('dmyHis') !== $date.$time) {
@@ -121,6 +124,7 @@ class Vl512GnssLocationContract extends AbstractJsonGatewayLocationContract
                 'payload_format' => 'h02',
                 'raw_protocol' => $command,
             ],
+            iccid: $iccid,
         );
     }
 

@@ -21,5 +21,7 @@ class ParsedLocation
         public readonly ?float $accuracyMeters = null,
         public readonly array $statusMetadata = [],
         public readonly array $normalizedMetadata = [],
+        // SIM ICCID reported by the device; used only as claim proof, never persisted in plain text.
+        public readonly ?string $iccid = null,
     ) {}
 }

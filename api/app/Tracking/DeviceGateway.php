@@ -3,6 +3,7 @@
 namespace App\Tracking;
 
 use App\Ingestion\Data\IngestionPayload;
+use App\Ingestion\Data\ParsedLocation;
 use App\Ingestion\IngestionProcessor;
 use App\Models\{DeviceConnection, TrackerDevice};
 use Illuminate\Support\Carbon;
@@ -39,6 +40,37 @@ class DeviceGateway
             ]);
             $this->processPending($device);
         }, 3);
+    }
+
+    /**
+     * Register an unknown device seen through /api/ingest and hold its location until it is claimed.
+     * Returns false when the identity cannot be claimed (non-numeric, or already tied to a tracker).
+     */
+    public function holdForClaim(ParsedLocation $parsed, string $body): bool
+    {
+        $identity = $parsed->deviceIdentity;
+
+        if (! preg_match('/^\d{8,15}$/', $identity)
+            || TrackerDevice::withoutGlobalScopes()->where('metadata->device_identity', $identity)->exists()
+            || DeviceConnection::where('imei', $identity)->whereNotNull('tracker_device_id')->exists()) {
+            return false;
+        }
+
+        $this->receive([
+            'imei' => $identity,
+            'iccid' => $parsed->iccid,
+            'packet_hex' => bin2hex($body),
+            'protocol' => 0,
+            'location' => array_filter([
+                'timestamp' => $parsed->eventTimestamp->toIso8601String(),
+                'latitude' => $parsed->latitude,
+                'longitude' => $parsed->longitude,
+                'speedKmh' => $parsed->speedMetersPerSecond === null ? null : $parsed->speedMetersPerSecond * 3.6,
+                'heading' => $parsed->headingDegrees,
+            ], fn ($value) => $value !== null),
+        ]);
+
+        return true;
     }
 
     public function processPending(DeviceConnection $device): void

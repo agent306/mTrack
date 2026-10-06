@@ -12,6 +12,10 @@ Schedule::command('mtrack:prune-raw-payloads')
     ->dailyAt('02:15')
     ->withoutOverlapping();
 
+Schedule::command('mtrack:prune-unclaimed-devices')
+    ->hourly()
+    ->withoutOverlapping();
+
 Schedule::command('mtrack:backup')
     ->dailyAt('03:00')
     ->withoutOverlapping();

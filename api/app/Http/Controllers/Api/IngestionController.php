@@ -30,6 +30,13 @@ class IngestionController extends Controller
             ], 404);
         }
 
+        if ($outcome->rawPayload->processing_status === 'pending_claim') {
+            return response()->json([
+                'status' => 'pending_claim',
+                'raw_payload_id' => $outcome->rawPayload->id,
+            ], 202);
+        }
+
         if (! $outcome->accepted()) {
             $status = str_contains((string) $outcome->rawPayload->rejection_reason, 'byte limit') ? 413 : 422;
 

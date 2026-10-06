@@ -148,11 +148,13 @@ class WorkspaceController extends Controller
     private function verifyDevice(Request $request): DeviceConnection
     {
         $this->access($request, 'my_fleets', 'edit');
-        $data = $request->validate(['imei' => ['required', 'regex:/^\d{15}$/'], 'proof' => ['required', 'string', 'min:18', 'max:64']]);
+        $data = $request->validate(['imei' => ['required', 'regex:/^\d{8,15}$/'], 'proof' => ['required', 'string', 'min:18', 'max:64']]);
         $device = DeviceConnection::where('imei', $data['imei'])->lockForUpdate()->first();
         $proof = hash('sha256', trim($data['proof']));
+        // Devices report the ICCID without spaces and sometimes padded with a trailing F.
+        $iccidProof = hash('sha256', preg_replace('/F$/i', '', preg_replace('/\s+/', '', $data['proof'])));
         $verified = $device && ! $device->tracker_device_id && (
-            ($device->iccid_hash && hash_equals($device->iccid_hash, $proof)) ||
+            ($device->iccid_hash && (hash_equals($device->iccid_hash, $proof) || hash_equals($device->iccid_hash, $iccidProof))) ||
             ($device->claim_code_hash && hash_equals($device->claim_code_hash, $proof))
         );
         if (! $verified) {

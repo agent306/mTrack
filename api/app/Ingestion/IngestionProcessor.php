@@ -8,10 +8,12 @@ use App\Ingestion\Data\IngestionOutcome;
 use App\Ingestion\Data\IngestionPayload;
 use App\Ingestion\Data\ParsedLocation;
 use App\Ingestion\Exceptions\IngestionRejected;
+use App\Ingestion\Exceptions\UnclaimedTracker;
 use App\Models\AuditLog;
 use App\Models\NormalizedLocationEvent;
 use App\Models\RawPayload;
 use App\Models\TrackerDevice;
+use App\Tracking\DeviceGateway;
 use App\Tracking\TrackerStateService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -22,6 +24,7 @@ class IngestionProcessor
     public function __construct(
         private readonly ContractRegistry $contracts,
         private readonly TrackerStateService $trackerStates,
+        private readonly DeviceGateway $gateway,
     ) {}
 
     public function processIncoming(IngestionPayload $payload, ?string $contractKey = null): IngestionOutcome
@@ -167,24 +170,39 @@ class IngestionProcessor
             ]);
 
             return $outcome;
+        } catch (UnclaimedTracker $exception) {
+            return $this->holdForClaim($rawPayload, $exception, $actorId);
         } catch (IngestionRejected $exception) {
             return $this->reject($rawPayload, $exception, $actorId);
         }
     }
 
-    private function resolveTracker(string $deviceIdentity, string $contractKey, int $contractVersion): TrackerDevice
+    /**
+     * Keep a valid location from an unknown device so it can be claimed. Unclaimed devices
+     * and their held data are disposed of by mtrack:prune-unclaimed-devices.
+     */
+    private function holdForClaim(RawPayload $rawPayload, UnclaimedTracker $exception, ?int $actorId): IngestionOutcome
     {
-        $tracker = $this->findTracker($deviceIdentity, $contractKey, $contractVersion);
+        $identity = $exception->parsed->deviceIdentity;
 
-        if (! $tracker) {
-            throw new IngestionRejected('Tracker device could not be resolved for this contract identity.', 'deviceIdentity', [
-                'device_identity' => $deviceIdentity,
-                'parser_contract_key' => $contractKey,
-                'parser_contract_version' => $contractVersion,
-            ]);
+        if (! $this->gateway->holdForClaim($exception->parsed, $rawPayload->body_content)) {
+            return $this->reject($rawPayload, $exception, $actorId);
         }
 
-        return $tracker;
+        $rawPayload->forceFill([
+            'parser_contract_key' => $exception->contract->key(),
+            'parser_contract_version' => $exception->contract->version(),
+            'processing_status' => 'pending_claim',
+            'rejection_reason' => null,
+            'metadata' => [
+                ...($rawPayload->metadata ?? []),
+                'pending_device_identity' => $identity,
+            ],
+        ])->save();
+
+        $this->logRawPayload('pending_claim', $rawPayload, ['device_identity' => $identity]);
+
+        return new IngestionOutcome($rawPayload->refresh());
     }
 
     private function findTracker(string $deviceIdentity, string $contractKey, int $contractVersion): ?TrackerDevice
@@ -207,7 +225,17 @@ class IngestionProcessor
             $contract = $this->contracts->resolve($rawPayload->parser_contract_key);
             $parsed = $contract->parse($payload);
 
-            return [$contract, $parsed, $this->resolveTracker($parsed->deviceIdentity, $contract->key(), $contract->version())];
+            $tracker = $this->findTracker($parsed->deviceIdentity, $contract->key(), $contract->version());
+
+            if (! $tracker) {
+                throw new UnclaimedTracker('Tracker device could not be resolved for this contract identity.', $contract, $parsed, [
+                    'device_identity' => $parsed->deviceIdentity,
+                    'parser_contract_key' => $contract->key(),
+                    'parser_contract_version' => $contract->version(),
+                ]);
+            }
+
+            return [$contract, $parsed, $tracker];
         }
 
         return $this->detectContractAndTracker($rawPayload, $payload);
@@ -268,7 +296,7 @@ class IngestionProcessor
                 'parser_contract_version' => $firstParsedContract->version(),
             ])->save();
 
-            throw new IngestionRejected('Tracker device could not be resolved for this detected contract identity.', 'deviceIdentity', [
+            throw new UnclaimedTracker('Tracker device could not be resolved for this detected contract identity.', $firstParsedContract, $firstParsedLocation, [
                 'device_identity' => $firstParsedLocation->deviceIdentity,
                 'parser_contract_key' => $firstParsedContract->key(),
                 'parser_contract_version' => $firstParsedContract->version(),
